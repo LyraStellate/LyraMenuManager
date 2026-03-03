@@ -1,0 +1,92 @@
+name: Build and Publish to vpm-repos
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Package Repo
+        uses: actions/checkout@v4
+        with:
+          path: 'package-repo'
+
+      # vpm-reposを合い鍵を使ってクローンする
+      - name: Checkout VPM Repos
+        uses: actions/checkout@v4
+        with:
+          repository: '${{ github.repository_owner }}/vpm-repos'
+          token: ${{ secrets.PAT_VPM_REPOS }}
+          path: 'vpm-repos'
+
+      - name: Set Environment Variables
+        run: |
+          echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          echo "ZIP_URL=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/package.zip" >> $GITHUB_ENV
+
+      - name: Zip Package
+        run: |
+          cd package-repo
+          zip -r ../package.zip . -x "*.git*" -x "*.github*" -x "package.zip"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: package.zip
+          name: Release ${{ env.VERSION }}
+          draft: false
+          prerelease: false
+          tag_name: ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update index.json in vpm-repos
+        run: |
+          python -c "
+          import json, os
+
+          zip_url = os.environ['ZIP_URL']
+          
+          # パッケージのpackage.jsonを読み込む
+          with open('package-repo/package.json', 'r', encoding='utf-8') as f:
+              new_pkg = json.load(f)
+          pkg_name = new_pkg['name']
+          pkg_version = new_pkg['version']
+          new_pkg['url'] = zip_url
+
+          # vpm-reposのindex.jsonを読み込む（無ければ新規作成）
+          index_path = 'vpm-repos/index.json'
+          if os.path.exists(index_path):
+              with open(index_path, 'r', encoding='utf-8') as f:
+                  index_json = json.load(f)
+          else:
+              index_json = {
+                  'name': 'Lyra VPM Repo',
+                  'author': '${{ github.repository_owner }}',
+                  'url': 'https://${{ github.repository_owner }}.github.io/vpm-repos/index.json',
+                  'packages': {}
+              }
+
+          # データを追加・更新
+          if pkg_name not in index_json.get('packages', {}):
+              index_json.setdefault('packages', {})[pkg_name] = {'versions': {}}
+          index_json['packages'][pkg_name]['versions'][pkg_version] = new_pkg
+
+          with open(index_path, 'w', encoding='utf-8') as f:
+              json.dump(index_json, f, indent=2, ensure_ascii=False)
+          "
+
+      - name: Commit and Push to vpm-repos
+        run: |
+          cd vpm-repos
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.json
+          git commit -m "Update index.json for ${{ github.repository }} ${{ env.VERSION }}" || echo "No changes to commit"
+          git push
