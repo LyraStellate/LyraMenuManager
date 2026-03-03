@@ -1,0 +1,39 @@
+{
+  "name": "My VPM Repository",
+  "author": "Creator",
+  "url": "https://LyraStellate.github.io/LyraMenuManager/index.json",
+  "packages": {
+    "dev.lyrastellate.menu-manager": {
+      "versions": {
+        "0.5.0": {
+          "name": "dev.lyrastellate.menu-manager",
+          "displayName": "Lyra Menu Manager",
+          "version": "0.5.0",
+          "unity": "2022.3",
+          "description": "VRChat Expression Menu を直感的に編集できるエディター拡張。MA対応、NDMFによる非破壊ビルド適用。",
+          "author": {
+            "name": "Lyra",
+            "url": "https://github.com/LyraStellate"
+          },
+          "url": "https://github.com/LyraStellate/LyraMenuManager/releases/download/v0.5.0/package.zip",
+          "changelogUrl": "https://docs.lyrastellate.dev/MenuManager/guide/changelog.html",
+          "repo": "https://lyrastellate.github.io/vpm-repos/index.json",
+          "keywords": [
+            "vrchat",
+            "avatar",
+            "menu",
+            "expression-menu",
+            "modular-avatar",
+            "ndmf",
+            "editor-tool"
+          ],
+          "vpmDependencies": {
+            "com.vrchat.avatars": ">=3.7.0",
+            "nadena.dev.ndmf": ">=1.5.0 <2.0.0-a",
+            "nadena.dev.modular-avatar": ">=1.10.0 <2.0.0-a"
+          }
+        }
+      }
+    }
+  }
+}
