@@ -1,0 +1,80 @@
+name: Build and Publish VPM Package
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set Environment Variables
+        id: vars
+        run: |
+          echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          echo "ZIP_URL=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/package.zip" >> $GITHUB_ENV
+          echo "REPO_URL=https://${GITHUB_REPOSITORY_OWNER}.github.io/$(basename ${GITHUB_REPOSITORY})" >> $GITHUB_ENV
+
+      - name: Zip Package
+        # ルートディレクトリを対象にZIP化。不要な隠しフォルダ等を除外
+        run: |
+          zip -r package.zip . -x "*.git*" -x "*.github*" -x "package.zip" -x "*.gitignore"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: package.zip
+          name: Release ${{ env.VERSION }}
+          draft: false
+          prerelease: false
+
+      - name: Generate VPM index.json
+        run: |
+          python -c "
+          import json, urllib.request, os
+
+          repo_url = os.environ['REPO_URL']
+          zip_url = os.environ['ZIP_URL']
+
+          # ルートにあるpackage.jsonを読み込むように変更
+          with open('package.json', 'r', encoding='utf-8') as f:
+              new_pkg = json.load(f)
+          pkg_name = new_pkg['name']
+          pkg_version = new_pkg['version']
+          new_pkg['url'] = zip_url
+
+          index_json = {
+              'name': 'My VPM Repository',
+              'author': 'Creator',
+              'url': f'{repo_url}/index.json',
+              'packages': {}
+          }
+          try:
+              req = urllib.request.urlopen(f'{repo_url}/index.json')
+              if req.getcode() == 200:
+                  index_json = json.loads(req.read().decode('utf-8'))
+          except:
+              print('Existing index.json not found. Creating a new one.')
+
+          if pkg_name not in index_json.get('packages', {}):
+              index_json.setdefault('packages', {})[pkg_name] = {'versions': {}}
+          index_json['packages'][pkg_name]['versions'][pkg_version] = new_pkg
+
+          os.makedirs('public', exist_ok=True)
+          with open('public/index.json', 'w', encoding='utf-8') as f:
+              json.dump(index_json, f, indent=2, ensure_ascii=False)
+          "
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          keep_files: true
