@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.2] - 2026-03-04
+
+### Changed
+- 第3階層以上のデータが強制的に解体される問題を修正
+
 ## [0.6.0] - 2026-03-03
 
 ### Added
@@ -13,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 認証状態の変更を通知する `OnAuthChanged` イベントによる疎結合なアーキテクチャの導入
 - インスペクター内での永続的な Foldout 状態の保存機能
 - `MenuLayoutData` インスペクターにオンラインマニュアルおよびサポートへのリンクを追加
+- 無料版での保存時に第3階層以上のデータが強制的に削除（解体）される問題を修正。これにより、Pro版で作成されたプロジェクトを無料版で開いた際のデータ消失やインベントリへの散乱を防ぎます。
 
 ### Changed
 - レイアウトデータの保存方法をスクリプト内データコンテナからScriptableObjectへ変更

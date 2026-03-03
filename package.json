@@ -1,7 +1,7 @@
 {
     "name": "dev.lyrastellate.menu-manager",
     "displayName": "Lyra Menu Manager",
-    "version": "0.5.0",
+    "version": "0.6.2",
     "unity": "2022.3",
     "description": "VRChat Expression Menu を直感的に編集できるエディター拡張。MA対応、NDMFによる非破壊ビルド適用。",
     "author": {
