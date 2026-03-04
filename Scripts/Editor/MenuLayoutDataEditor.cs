@@ -67,7 +67,7 @@ namespace Lyra{
                     imagePosition = ImagePosition.ImageLeft
                 };
 
-                string url1 = "https://docs.lyrastellate.dev/MenuManager/";
+                string url1 = "https://docs.lyrastellate.dev/menu-manager/";
                 GUIContent content1 = new GUIContent(
                     isJa ? " オンラインマニュアル" : " Online Manual", 
                     EditorGUIUtility.IconContent("_Help").image, 

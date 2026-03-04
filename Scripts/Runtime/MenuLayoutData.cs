@@ -25,6 +25,8 @@ namespace Lyra{
             public bool IsAutoOverflow;
 
             public bool IsDynamic;
+
+            public string SourceObjId;
         }
 
         [Header("Assets")]

@@ -8,6 +8,7 @@ using UnityEditor;
 using UnityEngine;
 using VRC.SDK3.Avatars.Components;
 using VRC.SDK3.Avatars.ScriptableObjects;
+using nadena.dev.modular_avatar.core;
 
 [assembly: ExportsPlugin(typeof(Lyra.MenuManagerPlugin))]
 
@@ -17,7 +18,8 @@ namespace Lyra{
         public override string DisplayName => "Lyra Menu Manager";
 
         protected override void Configure(){
-            var seq = InPhase(BuildPhase.Optimizing);
+            var seq = InPhase(BuildPhase.Transforming)
+                .AfterPlugin("nadena.dev.modular-avatar");
 
             try{
                 var afterPlugins = new HashSet<string>();
@@ -78,11 +80,12 @@ namespace Lyra{
                     var visited = new HashSet<VRCExpressionsMenu>();
 
                     var keysCache = new Dictionary<VRCExpressionsMenu.Control, string>();
+                    var objIdCache = new Dictionary<VRCExpressionsMenu.Control, string>();
                     if (debugLog) Debug.Log("[MenuManagerPlugin] Assigning control keys for root menu...");
-                    AssignControlKeys(descriptor.expressionsMenu, keysCache, new Dictionary<string, int>(), new HashSet<VRCExpressionsMenu>());
+                    AssignControlKeys(descriptor.expressionsMenu, keysCache, objIdCache, avatarRoot, new Dictionary<string, int>(), new HashSet<VRCExpressionsMenu>());
 
                     if (debugLog) Debug.Log("[MenuManagerPlugin] Starting ReorderMenu...");
-                    ReorderMenu(descriptor.expressionsMenu, layoutData, "", visited, keysCache, debugLog, detailedLog, autoAddNewItemsToRoot);
+                    ReorderMenu(descriptor.expressionsMenu, layoutData, "", visited, keysCache, objIdCache, debugLog, detailedLog, autoAddNewItemsToRoot);
 
                     UnityEngine.Object.DestroyImmediate(layoutData);
 
@@ -90,25 +93,35 @@ namespace Lyra{
                 });
         }
 
-        private static void AssignControlKeys(VRCExpressionsMenu menu, Dictionary<VRCExpressionsMenu.Control, string> keysCache, Dictionary<string, int> keyCounts, HashSet<VRCExpressionsMenu> visited){
+        private static void AssignControlKeys(
+            VRCExpressionsMenu menu,
+            Dictionary<VRCExpressionsMenu.Control, string> keysCache,
+            Dictionary<VRCExpressionsMenu.Control, string> objIdCache,
+            GameObject avatarRoot,
+            Dictionary<string, int> keyCounts,
+            HashSet<VRCExpressionsMenu> visited
+        ){
             if (menu == null || menu.controls == null || !visited.Add(menu)) return;
 
             for (int i = 0; i < menu.controls.Count; i++){
                 var ctrl = menu.controls[i];
                 string paramName = ctrl.parameter?.name ?? "";
                 string baseKey = $"{ctrl.type}:{ctrl.name}:{paramName}:{ctrl.value:F2}";
-
                 if (!keyCounts.ContainsKey(baseKey)) keyCounts[baseKey] = 0;
                 keysCache[ctrl] = baseKey + ":" + keyCounts[baseKey]++;
 
+                string menuGid = UnityEditor.GlobalObjectId.GetGlobalObjectIdSlow(menu).ToString();
+                objIdCache[ctrl] = menuGid + ":__index__:" + i;
+
                 if (ctrl.type == VRCExpressionsMenu.Control.ControlType.SubMenu && ctrl.subMenu != null){
-                    AssignControlKeys(ctrl.subMenu, keysCache, keyCounts, visited);
+                    AssignControlKeys(ctrl.subMenu, keysCache, objIdCache, avatarRoot, keyCounts, visited);
                 }
             }
         }
 
         private class ParsedLayoutItem{
             public MenuLayoutData.ItemLayout Original;
+            public string Key0;
             public string Key1;
             public string Key2;
             public string Key3;
@@ -116,6 +129,7 @@ namespace Lyra{
 
         private class PoolItem{
             public VRCExpressionsMenu.Control Ctrl;
+            public string Key0;
             public string Key1;
             public string Key2;
             public string Key3;
@@ -127,6 +141,7 @@ namespace Lyra{
             string currentPath,
             HashSet<VRCExpressionsMenu> visited,
             Dictionary<VRCExpressionsMenu.Control, string> keysCache,
+            Dictionary<VRCExpressionsMenu.Control, string> objIdCache,
             bool debugLog,
             bool detailedLog,
             bool autoAddNewItemsToRoot
@@ -139,9 +154,45 @@ namespace Lyra{
                 string[] parts = mk.Split(new[] { ':' }, 4);
                 string typeStr = parts.Length > 0 ? parts[0] : "";
                 string nameStr = parts.Length > 1 ? parts[1] : item.DisplayName;
-                
+
+                if (!string.IsNullOrEmpty(item.SourceObjId)){
+                    try{
+                        string[] idParts = item.SourceObjId.Split(new[] { ":__index__:" }, System.StringSplitOptions.None);
+                        if (UnityEditor.GlobalObjectId.TryParse(idParts[0], out var gid)){
+                            var obj = UnityEditor.GlobalObjectId.GlobalObjectIdentifierToObjectSlow(gid);
+                            if (obj is GameObject go){
+                                var menuItem = go.GetComponent<ModularAvatarMenuItem>();
+                                if (menuItem != null && menuItem.Control != null && !string.IsNullOrEmpty(menuItem.Control.name)){
+                                    nameStr = menuItem.Control.name;
+                                    typeStr = menuItem.Control.type.ToString();
+                                }
+                                else {
+                                    var installer = go.GetComponent<ModularAvatarMenuInstaller>();
+                                    if (installer != null && installer.menuToAppend != null){
+                                        nameStr = installer.menuToAppend.name;
+                                        typeStr = VRCExpressionsMenu.Control.ControlType.SubMenu.ToString();
+                                    }
+                                }
+                            }
+                            else if (obj is VRCExpressionsMenu menuAsst){
+                                if (idParts.Length > 1 && int.TryParse(idParts[1], out int idx)){
+                                    if (idx >= 0 && idx < menuAsst.controls.Count){
+                                        var c = menuAsst.controls[idx];
+                                        nameStr = c.name;
+                                        typeStr = c.type.ToString();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex) {
+                        if (detailedLog) Debug.LogWarning($"[MenuManagerPlugin] ID resolving failed for ({item.DisplayName}): {ex.Message}");
+                    }
+                }
+
                 parsedItems.Add(new ParsedLayoutItem{
                     Original = item,
+                    Key0 = item.SourceObjId ?? "",
                     Key1 = mk,
                     Key2 = $"{typeStr}:{nameStr}",
                     Key3 = nameStr
@@ -150,36 +201,23 @@ namespace Lyra{
 
             if (!autoAddNewItemsToRoot){
                 if (debugLog) Debug.Log("[MenuManagerPlugin] AutoAddNewItemsToRoot is OFF; mapping unregistered controls to virtual inventory.");
-                InjectInventoryMappingsForUnregisteredControls(rootMenu, parsedItems, keysCache, detailedLog);
+                InjectInventoryMappingsForUnregisteredControls(rootMenu, parsedItems, keysCache, objIdCache, detailedLog);
             }
 
             if (debugLog) Debug.Log("[MenuManagerPlugin] Flattening More menus...");
-            FlattenMoreMenus(rootMenu, new HashSet<VRCExpressionsMenu>(), parsedItems, keysCache, detailedLog);
+            FlattenMoreMenus(rootMenu, new HashSet<VRCExpressionsMenu>(), parsedItems, keysCache, objIdCache, detailedLog);
 
             var pool = new List<PoolItem>();
             if (debugLog) Debug.Log("[MenuManagerPlugin] Extracting mapped controls...");
-            ExtractMappedControls(rootMenu, parsedItems, visited, pool, keysCache, detailedLog);
+            ExtractMappedControls(rootMenu, parsedItems, visited, pool, keysCache, objIdCache, detailedLog);
             
             if (debugLog) Debug.Log("[MenuManagerPlugin] Rebuilding menu levels...");
-            RebuildMenuLevel(rootMenu, "", layout, pool, parsedItems, detailedLog);
+            RebuildMenuLevel(rootMenu, "", "", layout, pool, parsedItems, detailedLog);
             
             if (pool.Count > 0){
                 foreach (var leftover in pool){
                     bool anyInventoryMatch = false;
-                    ParsedLayoutItem mappedItem = null;
-                    for (int j = 0; j < parsedItems.Count; j++) if (parsedItems[j].Key1 == leftover.Key1) { mappedItem = parsedItems[j]; break; }
-                    if (mappedItem == null) for (int j = 0; j < parsedItems.Count; j++){
-                        if (parsedItems[j].Key2 == leftover.Key2){
-                            if (mappedItem == null) mappedItem = parsedItems[j];
-                            if (parsedItems[j].Original.ParentPath.StartsWith("__INVENTORY__")) anyInventoryMatch = true;
-                        }
-                    }
-                    if (mappedItem == null) for (int j = 0; j < parsedItems.Count; j++){
-                        if (parsedItems[j].Key3 == leftover.Key3){
-                            if (mappedItem == null) mappedItem = parsedItems[j];
-                            if (parsedItems[j].Original.ParentPath.StartsWith("__INVENTORY__")) anyInventoryMatch = true;
-                        }
-                    }
+                    ParsedLayoutItem mappedItem = FindParsedMatch(parsedItems, leftover, out anyInventoryMatch);
 
                     if (mappedItem == null || (!mappedItem.Original.ParentPath.StartsWith("__INVENTORY__") && !anyInventoryMatch)){
                         if (detailedLog) Debug.Log($"[MenuManagerPlugin] Restoring unmapped leftover control: {leftover.Ctrl.name}");
@@ -196,18 +234,20 @@ namespace Lyra{
             VRCExpressionsMenu rootMenu,
             List<ParsedLayoutItem> parsedItems,
             Dictionary<VRCExpressionsMenu.Control, string> keysCache,
+            Dictionary<VRCExpressionsMenu.Control, string> objIdCache,
             bool detailedLog
         ){
             if (rootMenu == null || rootMenu.controls == null) return;
 
             var visited = new HashSet<VRCExpressionsMenu>();
-            InjectInventoryMappingsRecursive(rootMenu, parsedItems, keysCache, visited, detailedLog);
+            InjectInventoryMappingsRecursive(rootMenu, parsedItems, keysCache, objIdCache, visited, detailedLog);
         }
 
         private static void InjectInventoryMappingsRecursive(
             VRCExpressionsMenu menu,
             List<ParsedLayoutItem> parsedItems,
             Dictionary<VRCExpressionsMenu.Control, string> keysCache,
+            Dictionary<VRCExpressionsMenu.Control, string> objIdCache,
             HashSet<VRCExpressionsMenu> visited,
             bool detailedLog,
             bool parentIsManaged = false
@@ -216,14 +256,12 @@ namespace Lyra{
 
             for (int i = 0; i < menu.controls.Count; i++){
                 var ctrl = menu.controls[i];
+                string key0 = objIdCache.TryGetValue(ctrl, out var oid) ? oid : "";
                 string key1 = keysCache.TryGetValue(ctrl, out var k) ? k : GenerateControlKey(ctrl);
                 string key2 = $"{ctrl.type}:{ctrl.name}";
                 string key3 = ctrl.name;
 
-                ParsedLayoutItem match = null;
-                for (int j = 0; j < parsedItems.Count; j++) if (parsedItems[j].Key1 == key1) { match = parsedItems[j]; break; }
-                if (match == null) for (int j = 0; j < parsedItems.Count; j++) if (parsedItems[j].Key2 == key2) { match = parsedItems[j]; break; }
-                if (match == null) for (int j = 0; j < parsedItems.Count; j++) if (parsedItems[j].Key3 == key3) { match = parsedItems[j]; break; }
+                ParsedLayoutItem match = FindParsedMatchByKeys(parsedItems, key0, key1, key2, key3);
 
                 if (match != null){
                     if (match.Original.IsSubMenu && match.Original.IsDynamic){
@@ -232,13 +270,13 @@ namespace Lyra{
                     }
                     
                     if (ctrl.type == VRCExpressionsMenu.Control.ControlType.SubMenu && ctrl.subMenu != null){
-                        InjectInventoryMappingsRecursive(ctrl.subMenu, parsedItems, keysCache, visited, detailedLog, true);
+                        InjectInventoryMappingsRecursive(ctrl.subMenu, parsedItems, keysCache, objIdCache, visited, detailedLog, true);
                     }
                     continue;
                 }
 
                 if (ctrl.type == VRCExpressionsMenu.Control.ControlType.SubMenu && ctrl.subMenu != null){
-                    InjectInventoryMappingsRecursive(ctrl.subMenu, parsedItems, keysCache, visited, detailedLog, parentIsManaged);
+                    InjectInventoryMappingsRecursive(ctrl.subMenu, parsedItems, keysCache, objIdCache, visited, detailedLog, parentIsManaged);
                 }
 
                 if (parentIsManaged){
@@ -254,11 +292,13 @@ namespace Lyra{
                     IsSubMenu = ctrl.type == VRCExpressionsMenu.Control.ControlType.SubMenu,
                     DisplayName = ctrl.name,
                     CustomIcon = ctrl.icon,
-                    IsAutoOverflow = false
+                    IsAutoOverflow = false,
+                    SourceObjId = key0
                 };
 
                 parsedItems.Add(new ParsedLayoutItem{
                     Original = dummy,
+                    Key0 = key0,
                     Key1 = key1,
                     Key2 = key2,
                     Key3 = key3
@@ -313,10 +353,7 @@ namespace Lyra{
                 string key2 = $"{ctrl.type}:{ctrl.name}";
                 string key3 = ctrl.name;
 
-                ParsedLayoutItem match = null;
-                for (int j = 0; j < parsedItems.Count; j++) if (parsedItems[j].Key1 == key1) { match = parsedItems[j]; break; }
-                if (match == null) for (int j = 0; j < parsedItems.Count; j++) if (parsedItems[j].Key2 == key2) { match = parsedItems[j]; break; }
-                if (match == null) for (int j = 0; j < parsedItems.Count; j++) if (parsedItems[j].Key3 == key3) { match = parsedItems[j]; break; }
+                ParsedLayoutItem match = FindParsedMatchByKeys(parsedItems, "", key1, key2, key3);
 
                 if (match == null){
                     if (detailedLog) Debug.Log($"[MenuManagerPlugin] Detected new unmapped control '{ctrl.name}' in submenu '{menu.name}', moving to root.");
@@ -326,25 +363,23 @@ namespace Lyra{
             }
         }
 
-        private static void ExtractMappedControls(VRCExpressionsMenu menu, List<ParsedLayoutItem> parsedItems, HashSet<VRCExpressionsMenu> visited, List<PoolItem> pool, Dictionary<VRCExpressionsMenu.Control, string> keysCache, bool detailedLog){
+        private static void ExtractMappedControls(VRCExpressionsMenu menu, List<ParsedLayoutItem> parsedItems, HashSet<VRCExpressionsMenu> visited, List<PoolItem> pool, Dictionary<VRCExpressionsMenu.Control, string> keysCache, Dictionary<VRCExpressionsMenu.Control, string> objIdCache, bool detailedLog){
             if (menu == null || menu.controls == null || !visited.Add(menu)) return;
 
             for (int i = menu.controls.Count - 1; i >= 0; i--){
                 var ctrl = menu.controls[i];
 
+                string key0 = objIdCache.TryGetValue(ctrl, out var oid) ? oid : "";
                 string key1 = keysCache.TryGetValue(ctrl, out var k) ? k : GenerateControlKey(ctrl);
                 string key2 = $"{ctrl.type}:{ctrl.name}";
                 string key3 = ctrl.name;
 
-                ParsedLayoutItem match = null;
-                for (int j = 0; j < parsedItems.Count; j++) if (parsedItems[j].Key1 == key1) { match = parsedItems[j]; break; }
-                if (match == null) for (int j = 0; j < parsedItems.Count; j++) if (parsedItems[j].Key2 == key2) { match = parsedItems[j]; break; }
-                if (match == null) for (int j = 0; j < parsedItems.Count; j++) if (parsedItems[j].Key3 == key3) { match = parsedItems[j]; break; }
+                ParsedLayoutItem match = FindParsedMatchByKeys(parsedItems, key0, key1, key2, key3);
 
                 if (match != null){
-                    if (detailedLog) Debug.Log($"[MenuManagerPlugin] Extracted to pool: {ctrl.name} (Matched Key: {match.Original.Key})");
+                    if (detailedLog) Debug.Log($"[MenuManagerPlugin] Extracted to pool: {ctrl.name} (Matched Key: {match.Original.Key}, SourceObjId: {(key0.Length > 0 ? "YES" : "fallback")})");
                     menu.controls.RemoveAt(i);
-                    pool.Add(new PoolItem { Ctrl = ctrl, Key1 = key1, Key2 = key2, Key3 = key3 });
+                    pool.Add(new PoolItem { Ctrl = ctrl, Key0 = key0, Key1 = key1, Key2 = key2, Key3 = key3 });
 
                     if (match.Original.IsSubMenu && match.Original.IsDynamic){
                         if (detailedLog) Debug.Log($"[MenuManagerPlugin] Skipping extraction for children of dynamic folder: {ctrl.name}");
@@ -353,32 +388,30 @@ namespace Lyra{
                 }
 
                 if (ctrl.type == VRCExpressionsMenu.Control.ControlType.SubMenu && ctrl.subMenu != null){
-                    ExtractMappedControls(ctrl.subMenu, parsedItems, visited, pool, keysCache, detailedLog);
+                    ExtractMappedControls(ctrl.subMenu, parsedItems, visited, pool, keysCache, objIdCache, detailedLog);
                 }
             }
         }
 
-        private static void FlattenMoreMenus(VRCExpressionsMenu menu, HashSet<VRCExpressionsMenu> visited, List<ParsedLayoutItem> parsedItems, Dictionary<VRCExpressionsMenu.Control, string> keysCache, bool detailedLog){
+        private static void FlattenMoreMenus(VRCExpressionsMenu menu, HashSet<VRCExpressionsMenu> visited, List<ParsedLayoutItem> parsedItems, Dictionary<VRCExpressionsMenu.Control, string> keysCache, Dictionary<VRCExpressionsMenu.Control, string> objIdCache, bool detailedLog){
             if (menu == null || menu.controls == null || !visited.Add(menu)) return;
 
             for (int i = menu.controls.Count - 1; i >= 0; i--){
                 var ctrl = menu.controls[i];
                 if (ctrl.type == VRCExpressionsMenu.Control.ControlType.SubMenu && ctrl.subMenu != null){
+                    string key0 = objIdCache.TryGetValue(ctrl, out var oid) ? oid : "";
                     string key1 = keysCache.TryGetValue(ctrl, out var k) ? k : GenerateControlKey(ctrl);
                     string key2 = $"{ctrl.type}:{ctrl.name}";
                     string key3 = ctrl.name;
 
-                    ParsedLayoutItem match = null;
-                    for (int j = 0; j < parsedItems.Count; j++) if (parsedItems[j].Key1 == key1) { match = parsedItems[j]; break; }
-                    if (match == null) for (int j = 0; j < parsedItems.Count; j++) if (parsedItems[j].Key2 == key2) { match = parsedItems[j]; break; }
-                    if (match == null) for (int j = 0; j < parsedItems.Count; j++) if (parsedItems[j].Key3 == key3) { match = parsedItems[j]; break; }
+                    ParsedLayoutItem match = FindParsedMatchByKeys(parsedItems, key0, key1, key2, key3);
 
                     if (match != null && match.Original.IsDynamic){
                         if (detailedLog) Debug.Log($"[MenuManagerPlugin] Skipping FlattenMoreMenus for children of dynamic folder: {ctrl.name}");
                         continue;
                     }
 
-                    FlattenMoreMenus(ctrl.subMenu, visited, parsedItems, keysCache, detailedLog);
+                    FlattenMoreMenus(ctrl.subMenu, visited, parsedItems, keysCache, objIdCache, detailedLog);
 
                     string n = ctrl.name ?? "";
                     if (n == "Next" || n == "More" || n == "…(More)" || n == "... (More)" || n == "..." || n.EndsWith("More)")){
@@ -394,9 +427,9 @@ namespace Lyra{
             }
         }
 
-        private static void RebuildMenuLevel(VRCExpressionsMenu currentMenu, string currentPath, MenuLayoutData layout, List<PoolItem> pool, List<ParsedLayoutItem> parsedItems, bool detailedLog){
+        private static void RebuildMenuLevel(VRCExpressionsMenu currentMenu, string currentPath, string legacyPath, MenuLayoutData layout, List<PoolItem> pool, List<ParsedLayoutItem> parsedItems, bool detailedLog){
             var itemsInPath = layout.Items
-                .Where(item => item.ParentPath == currentPath)
+                .Where(item => item.ParentPath == currentPath || (!string.IsNullOrEmpty(legacyPath) && item.ParentPath == legacyPath))
                 .OrderBy(item => item.Order)
                 .ToList();
 
@@ -421,13 +454,18 @@ namespace Lyra{
                             if (detailedLog) Debug.Log($"[MenuManagerPlugin] Dynamic folder detected: {ctrl.name}. Keeping internal structure.");
                         }
                         else{
-                            string subPath = string.IsNullOrEmpty(currentPath) ? (item.DisplayName ?? ctrl.name) : currentPath + "/" + (item.DisplayName ?? ctrl.name);
-                            RebuildMenuLevel(ctrl.subMenu, subPath, layout, pool, parsedItems, detailedLog);
+                            string subPath = string.IsNullOrEmpty(currentPath) ? item.Key : currentPath + "/" + item.Key;
+                            string legPath = string.IsNullOrEmpty(legacyPath) ? (item.DisplayName ?? ctrl.name) : legacyPath + "/" + (item.DisplayName ?? ctrl.name);
+                            RebuildMenuLevel(ctrl.subMenu, subPath, legPath, layout, pool, parsedItems, detailedLog);
                         }
                     }
                     
                     if (item.CustomIcon != null){
                         ctrl.icon = item.CustomIcon;
+                    }
+
+                    if (!string.IsNullOrEmpty(item.DisplayName)) {
+                        ctrl.name = item.DisplayName;
                     }
 
                     if (item.Key == "__BUILD_TIME__" || (!string.IsNullOrEmpty(item.Type) && item.Type == "__BUILD_TIME__")){
@@ -450,8 +488,9 @@ namespace Lyra{
                             subMenu = virtualSub,
                             icon = item.CustomIcon
                         };
-                        string subPath = string.IsNullOrEmpty(currentPath) ? item.DisplayName : currentPath + "/" + item.DisplayName;
-                        RebuildMenuLevel(virtualSub, subPath, layout, pool, parsedItems, detailedLog);
+                        string subPath = string.IsNullOrEmpty(currentPath) ? item.Key : currentPath + "/" + item.Key;
+                        string legPath = string.IsNullOrEmpty(legacyPath) ? item.DisplayName : legacyPath + "/" + item.DisplayName;
+                        RebuildMenuLevel(virtualSub, subPath, legPath, layout, pool, parsedItems, detailedLog);
                         newControls.Add(virtualCtrl);
                     }
                     else{
@@ -479,8 +518,14 @@ namespace Lyra{
             if (parsed == null) return null;
 
             int idx = -1;
-            for (int i = 0; i < pool.Count; i++) if (pool[i].Key1 == parsed.Key1) { idx = i; break; }
+
+            if (idx < 0 && !string.IsNullOrEmpty(parsed.Key0))
+                for (int i = 0; i < pool.Count; i++) if (!string.IsNullOrEmpty(pool[i].Key0) && pool[i].Key0 == parsed.Key0) { idx = i; break; }
+
+            if (idx < 0) for (int i = 0; i < pool.Count; i++) if (pool[i].Key1 == parsed.Key1) { idx = i; break; }
+
             if (idx < 0) for (int i = 0; i < pool.Count; i++) if (pool[i].Key2 == parsed.Key2) { idx = i; break; }
+
             if (idx < 0) for (int i = 0; i < pool.Count; i++) if (pool[i].Key3 == parsed.Key3) { idx = i; break; }
 
             if (idx >= 0){
@@ -488,6 +533,63 @@ namespace Lyra{
                 pool.RemoveAt(idx);
                 return ctrl.Ctrl;
             }
+            return null;
+        }
+
+        private static ParsedLayoutItem FindParsedMatch(List<ParsedLayoutItem> parsedItems, PoolItem leftover, out bool anyInventoryMatch){
+            anyInventoryMatch = false;
+            ParsedLayoutItem result = null;
+
+            if (!string.IsNullOrEmpty(leftover.Key0)){
+                for (int j = 0; j < parsedItems.Count; j++){
+                    if (!string.IsNullOrEmpty(parsedItems[j].Key0) && parsedItems[j].Key0 == leftover.Key0){
+                        result = parsedItems[j];
+                        if (parsedItems[j].Original.ParentPath.StartsWith("__INVENTORY__")) anyInventoryMatch = true;
+                        return result;
+                    }
+                }
+            }
+
+            for (int j = 0; j < parsedItems.Count; j++){
+                if (parsedItems[j].Key1 == leftover.Key1){
+                    if (result == null) result = parsedItems[j];
+                    if (parsedItems[j].Original.ParentPath.StartsWith("__INVENTORY__")) anyInventoryMatch = true;
+                }
+            }
+            if (result != null) return result;
+
+            for (int j = 0; j < parsedItems.Count; j++){
+                if (parsedItems[j].Key2 == leftover.Key2){
+                    if (result == null) result = parsedItems[j];
+                    if (parsedItems[j].Original.ParentPath.StartsWith("__INVENTORY__")) anyInventoryMatch = true;
+                }
+            }
+            if (result != null) return result;
+
+            for (int j = 0; j < parsedItems.Count; j++){
+                if (parsedItems[j].Key3 == leftover.Key3){
+                    if (result == null) result = parsedItems[j];
+                    if (parsedItems[j].Original.ParentPath.StartsWith("__INVENTORY__")) anyInventoryMatch = true;
+                }
+            }
+            return result;
+        }
+
+        private static ParsedLayoutItem FindParsedMatchByKeys(List<ParsedLayoutItem> parsedItems, string key0, string key1, string key2, string key3){
+            if (!string.IsNullOrEmpty(key0)){
+                for (int j = 0; j < parsedItems.Count; j++)
+                    if (!string.IsNullOrEmpty(parsedItems[j].Key0) && parsedItems[j].Key0 == key0) return parsedItems[j];
+            }
+
+            for (int j = 0; j < parsedItems.Count; j++)
+                if (parsedItems[j].Key1 == key1) return parsedItems[j];
+
+            for (int j = 0; j < parsedItems.Count; j++)
+                if (parsedItems[j].Key2 == key2) return parsedItems[j];
+
+            for (int j = 0; j < parsedItems.Count; j++)
+                if (parsedItems[j].Key3 == key3) return parsedItems[j];
+
             return null;
         }
 
