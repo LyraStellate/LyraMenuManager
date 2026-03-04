@@ -8,9 +8,9 @@
         "name": "Lyra",
         "url": "https://github.com/LyraStellate"
     },
-    "documentationUrl": "https://docs.lyrastellate.dev/MenuManager/",
-    "url": "https://docs.lyrastellate.dev/MenuManager/",
-    "changelogUrl": "https://docs.lyrastellate.dev/MenuManager/guide/changelog.html",
+    "documentationUrl": "https://docs.lyrastellate.dev/menu-manager/",
+    "url": "https://docs.lyrastellate.dev/menu-manager/",
+    "changelogUrl": "https://docs.lyrastellate.dev/menu-manager/guide/changelog.html",
     "repo": "https://lyrastellate.github.io/vpm-repos/index.json",
     "keywords": [
         "vrchat",

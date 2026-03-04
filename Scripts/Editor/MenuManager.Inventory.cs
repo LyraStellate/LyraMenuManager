@@ -72,6 +72,7 @@ namespace Lyra.Editor{
                         _isDragging = false;
                         _dragIdx = -1;
                         _hasUnsavedChanges = true;
+                        _needsOverflowReeval = true;
                         evt.Use();
                         Repaint();
                     }
@@ -130,6 +131,7 @@ namespace Lyra.Editor{
                 CurEntries().Clear();
                 _hasUnsavedChanges = true;
                 _selectedIdx = -1;
+                _needsOverflowReeval = true;
                 Repaint();
             }
             if (GUILayout.Button("全回収", _sBtnSmall, GUILayout.Height(36))){
@@ -139,6 +141,7 @@ namespace Lyra.Editor{
                 _selectedIdx = -1;
                 NavToLevel(0);
                 _hasUnsavedChanges = true;
+                _needsOverflowReeval = true;
                 Repaint();
             }
             EditorGUILayout.EndHorizontal();
