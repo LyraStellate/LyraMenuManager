@@ -10,6 +10,7 @@ using UnityEditor;
 using UnityEngine;
 using VRC.SDK3.Avatars.Components;
 using VRC.SDK3.Avatars.ScriptableObjects;
+using Lyra;
 
 namespace Lyra.Editor{
     public class MenuManager : EditorWindow{

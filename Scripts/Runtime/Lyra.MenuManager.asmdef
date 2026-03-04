@@ -2,7 +2,8 @@
     "name": "Lyra.MenuManager",
     "rootNamespace": "Lyra",
     "references": [
-        "VRC.SDKBase"
+        "VRC.SDKBase",
+        "VRC.SDK3.Avatars"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

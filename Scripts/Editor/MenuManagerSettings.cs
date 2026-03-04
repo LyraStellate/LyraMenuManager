@@ -410,7 +410,7 @@ namespace Lyra.Editor{
                     fontSize = 11,
                     normal = { textColor = new Color(0.4f, 0.9f, 0.5f) }
                 };
-                GUI.Label(statusRect, "認証済み", statusStyle);
+                GUI.Label(statusRect, "✅ Pro版 認証済み", statusStyle);
 
                 GUILayout.Space(10);
                 EditorGUILayout.EndHorizontal();
