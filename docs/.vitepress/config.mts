@@ -10,7 +10,7 @@ export default defineConfig({
     title: "Lyra Menu Manager",
     description: "VRChat向けアバターメニューを直感的なUIで視覚的に整理・編集できるUnityエディター拡張ツールのドキュメント",
     lang: 'ja',
-    base: '/MenuManager/',
+    base: '/',
     themeConfig: {
         nav: [
             { text: 'ポータルホーム', link: 'https://docs.lyrastellate.dev/' },
