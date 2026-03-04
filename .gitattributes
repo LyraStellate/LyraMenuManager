@@ -1,0 +1,4 @@
+package-lock.json export-ignore
+docs/ export-ignore
+.github/ export-ignore
+.gitignore export-ignore
