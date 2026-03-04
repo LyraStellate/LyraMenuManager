@@ -165,12 +165,23 @@ namespace Lyra{
             
             if (pool.Count > 0){
                 foreach (var leftover in pool){
+                    bool anyInventoryMatch = false;
                     ParsedLayoutItem mappedItem = null;
                     for (int j = 0; j < parsedItems.Count; j++) if (parsedItems[j].Key1 == leftover.Key1) { mappedItem = parsedItems[j]; break; }
-                    if (mappedItem == null) for (int j = 0; j < parsedItems.Count; j++) if (parsedItems[j].Key2 == leftover.Key2) { mappedItem = parsedItems[j]; break; }
-                    if (mappedItem == null) for (int j = 0; j < parsedItems.Count; j++) if (parsedItems[j].Key3 == leftover.Key3) { mappedItem = parsedItems[j]; break; }
+                    if (mappedItem == null) for (int j = 0; j < parsedItems.Count; j++){
+                        if (parsedItems[j].Key2 == leftover.Key2){
+                            if (mappedItem == null) mappedItem = parsedItems[j];
+                            if (parsedItems[j].Original.ParentPath.StartsWith("__INVENTORY__")) anyInventoryMatch = true;
+                        }
+                    }
+                    if (mappedItem == null) for (int j = 0; j < parsedItems.Count; j++){
+                        if (parsedItems[j].Key3 == leftover.Key3){
+                            if (mappedItem == null) mappedItem = parsedItems[j];
+                            if (parsedItems[j].Original.ParentPath.StartsWith("__INVENTORY__")) anyInventoryMatch = true;
+                        }
+                    }
 
-                    if (mappedItem == null || !mappedItem.Original.ParentPath.StartsWith("__INVENTORY__")){
+                    if (mappedItem == null || (!mappedItem.Original.ParentPath.StartsWith("__INVENTORY__") && !anyInventoryMatch)){
                         if (detailedLog) Debug.Log($"[MenuManagerPlugin] Restoring unmapped leftover control: {leftover.Ctrl.name}");
                         rootMenu.controls.Add(leftover.Ctrl);
                     }
@@ -198,7 +209,8 @@ namespace Lyra{
             List<ParsedLayoutItem> parsedItems,
             Dictionary<VRCExpressionsMenu.Control, string> keysCache,
             HashSet<VRCExpressionsMenu> visited,
-            bool detailedLog
+            bool detailedLog,
+            bool parentIsManaged = false
         ){
             if (menu == null || menu.controls == null || !visited.Add(menu)) return;
 
@@ -220,13 +232,18 @@ namespace Lyra{
                     }
                     
                     if (ctrl.type == VRCExpressionsMenu.Control.ControlType.SubMenu && ctrl.subMenu != null){
-                        InjectInventoryMappingsRecursive(ctrl.subMenu, parsedItems, keysCache, visited, detailedLog);
+                        InjectInventoryMappingsRecursive(ctrl.subMenu, parsedItems, keysCache, visited, detailedLog, true);
                     }
                     continue;
                 }
 
                 if (ctrl.type == VRCExpressionsMenu.Control.ControlType.SubMenu && ctrl.subMenu != null){
-                    InjectInventoryMappingsRecursive(ctrl.subMenu, parsedItems, keysCache, visited, detailedLog);
+                    InjectInventoryMappingsRecursive(ctrl.subMenu, parsedItems, keysCache, visited, detailedLog, parentIsManaged);
+                }
+
+                if (parentIsManaged){
+                    if (detailedLog) Debug.Log($"[MenuManagerPlugin] Preserving unregistered control in managed folder: {ctrl.name}");
+                    continue;
                 }
 
                 var dummy = new MenuLayoutData.ItemLayout{

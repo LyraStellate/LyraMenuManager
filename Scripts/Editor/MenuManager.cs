@@ -513,7 +513,7 @@ namespace Lyra.Editor{
 
             if (pool != null){
                 foreach (var p in pool){
-                    if (p.Type == VRCExpressionsMenu.Control.ControlType.SubMenu && p.SubMenu != null && p.SubMenu.Entries != null){
+                    if (p.Type == VRCExpressionsMenu.Control.ControlType.SubMenu && p.SubMenu != null && p.SubMenu.Entries != null && !p.IsDynamic){
                         for (int i = p.SubMenu.Entries.Count - 1; i >= 0; i--){
                             var e = p.SubMenu.Entries[i];
                             p.SubMenu.Entries.RemoveAt(i);
@@ -540,13 +540,20 @@ namespace Lyra.Editor{
             for (int i = node.Entries.Count - 1; i >= 0; i--){
                 var e = node.Entries[i];
 
-                if (e.Type == VRCExpressionsMenu.Control.ControlType.SubMenu && e.SubMenu != null){
-                    ExtractMappedEntries(e.SubMenu, layoutItems, pool);
+                var match = layoutItems.FirstOrDefault(item => MatchEntry(e, item));
+
+                if (match != null){
+                    node.Entries.RemoveAt(i);
+                    e.IsDynamic = match.IsDynamic;
+                    pool.Add(e);
+
+                    if (match.IsSubMenu && match.IsDynamic){
+                        continue;
+                    }
                 }
 
-                if (layoutItems.Any(item => MatchEntry(e, item))){
-                    node.Entries.RemoveAt(i);
-                    pool.Add(e);
+                if (e.Type == VRCExpressionsMenu.Control.ControlType.SubMenu && e.SubMenu != null){
+                    ExtractMappedEntries(e.SubMenu, layoutItems, pool);
                 }
             }
         }
@@ -570,8 +577,13 @@ namespace Lyra.Editor{
                     if (tk.Contains(":__custom__:")) e.IsCustomFolder = true;
                     if (item.IsSubMenu){
                         if (e.SubMenu == null) e.SubMenu = new MenuNode { Name = e.Name ?? item.DisplayName };
-                        string subPath = string.IsNullOrEmpty(currentPath) ? (e.Name ?? item.DisplayName) : currentPath + "/" + (e.Name ?? item.DisplayName);
-                        RebuildNodeLevel(e.SubMenu, subPath, layoutItems, pool);
+                        
+                        if (item.IsDynamic) {
+                        }
+                        else {
+                            string subPath = string.IsNullOrEmpty(currentPath) ? (e.Name ?? item.DisplayName) : currentPath + "/" + (e.Name ?? item.DisplayName);
+                            RebuildNodeLevel(e.SubMenu, subPath, layoutItems, pool);
+                        }
                     }
                     newEntries.Add(e);
                 }
@@ -1278,7 +1290,10 @@ namespace Lyra.Editor{
         private List<MenuEntry> FlattenMoreMenus(IList<MenuEntry> source){
             var result = new List<MenuEntry>();
             foreach (var entry in source){
-                if (IsMoreSubMenu(entry)){
+                if (entry.IsDynamic) {
+                    result.Add(entry);
+                }
+                else if (IsMoreSubMenu(entry)){
                     result.AddRange(FlattenMoreMenus(entry.SubMenu.Entries));
                 }
                 else{
@@ -1293,7 +1308,7 @@ namespace Lyra.Editor{
 
         private bool IsMoreSubMenu(MenuEntry entry){
             if (entry == null || entry.Type != VRCExpressionsMenu.Control.ControlType.SubMenu || entry.SubMenu == null) return false;
-            return entry.IsAutoOverflow;
+            return entry.IsAutoOverflow && !entry.IsDynamic;
         }
 
         private void DrawInventoryNode(IList<MenuEntry> list, int depth){
