@@ -3,11 +3,12 @@
     "displayName": "Lyra Menu Manager",
     "version": "0.6.2",
     "unity": "2022.3",
-    "description": "VRChat Expression Menu を直感的に編集できるエディター拡張。MA対応、NDMFによる非破壊ビルド適用。",
+    "description": "ExpressionMenuを直感的に編集できるエディター拡張",
     "author": {
         "name": "Lyra",
         "url": "https://github.com/LyraStellate"
     },
+    "documentationUrl": "https://docs.lyrastellate.dev/MenuManager/",
     "url": "https://docs.lyrastellate.dev/MenuManager/",
     "changelogUrl": "https://docs.lyrastellate.dev/MenuManager/guide/changelog.html",
     "repo": "https://lyrastellate.github.io/vpm-repos/index.json",
