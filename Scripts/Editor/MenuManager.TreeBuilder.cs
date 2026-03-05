@@ -139,13 +139,11 @@ namespace Lyra.Editor{
                 _inventory.AddRange(pool);
             }
 
-            bool addedToRoot = false;
             foreach (var ne in newEntries){
                 ne.IsNewEntry = true;
                 MarkNewEntryRecursive(ne);
                 if (_autoAddNewItemsToRoot){
                     _rootNode.Entries.Add(ne);
-                    addedToRoot = true;
                 }
                 else {
                     _inventory.Add(ne);
@@ -154,15 +152,6 @@ namespace Lyra.Editor{
 
             ExtractEditorOnly(_rootNode, _inventory);
             ApplyOverflowMoreRecursive(_rootNode);
-
-            if (_autoAddNewItemsToRoot && addedToRoot) {
-                EditorApplication.delayCall += () => {
-                    if (this != null) {
-                        SaveLayout(true);
-                        Repaint();
-                    }
-                };
-            }
         }
 
         private void ReevaluateOverflow(){

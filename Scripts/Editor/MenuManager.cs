@@ -112,26 +112,27 @@ namespace Lyra.Editor{
         private int _readyToRenameRingIdx = -1;
         private double _ringRenameDownTime;
 
-        [SerializeField] private bool _isMoveMode;
-        [SerializeField] private MenuEntry _cutEntry;
-        [SerializeReference] private MenuNode _cutSourceNode;
         [SerializeField] private bool _hasUnsavedChanges;
-        [SerializeField] private bool _needsOverflowReeval;
-
-        private Vector2 _scrollPos;
+        [SerializeField]        private bool _needsOverflowReeval = false;
+        private Vector2 _scrollPos = Vector2.zero;
+        private Vector2 _detailScrollPos = Vector2.zero;
+        private Vector2 _crumbScrollPos = Vector2.zero;
 
         private GUIStyle _sHeader, _sCrumb, _sLabel, _sSmall, _sBtn, _sCenter;
         private GUIStyle _sLabelItalic, _sLabelLeft, _sLabelItalicLeft, _sCenterLarge, _sBadge, _sTextFieldCenter;
-        private GUIStyle _sHeaderLeft, _sSmallLeft, _sBtnNoPadding, _sBtnSmall, _sTextFieldLeft, _sBadgeBold;
+        private GUIStyle _sHeaderLeft, _sSmallLeft, _sBtnNoPadding, _sBtnSmall, _sTextFieldLeft, _sBadgeBold, _sIconBtn, _sBtnIcon;
+        private GUIStyle _sHeaderDropZone, _sCrumbSep, _sCrumbNorm, _sCrumbBold, _sCrumbHover, _sCenterPlus;
         private bool _stylesOk;
         private bool _useVRcStyleUI = true;
         private bool _showInventory = true;
         private bool _autoAddNewItemsToRoot = false;
 
+        private Dictionary<string, Texture2D> _iconCache;
+
         [MenuItem("Tools/Lyra/Menu Manager")]
         public static void ShowWindow(){
             var w = GetWindow<MenuManager>("Menu Manager");
-            w.minSize = new Vector2(680, 800);
+            w.minSize = new Vector2(680, 750);
         }
 
         public static void ShowWindow(VRCAvatarDescriptor avatar){
@@ -262,51 +263,32 @@ namespace Lyra.Editor{
                 DrawDropZone();
             }
             else{
-                DrawBreadcrumbs();
-
-                EditorGUILayout.Space(4);
                 EditorGUILayout.BeginHorizontal();
-                GUILayout.Space(12);
+                
+                _crumbScrollPos = EditorGUILayout.BeginScrollView(_crumbScrollPos, GUIStyle.none, GUIStyle.none, GUILayout.Height(30));
+                EditorGUILayout.BeginHorizontal();
+                DrawBreadcrumbs();
+                EditorGUILayout.EndHorizontal();
+                EditorGUILayout.EndScrollView();
 
-                string mainBtnText = _useVRcStyleUI ? "VRChatUI" : "NormalUI";
-                var prevBg = GUI.backgroundColor;
-                GUI.backgroundColor = _useVRcStyleUI ? new Color(0.4f, 0.8f, 0.9f) : new Color(0.6f, 0.6f, 0.6f);
-                if (GUILayout.Button(mainBtnText, GUILayout.Width(80), GUILayout.Height(30))){
-                    _useVRcStyleUI = !_useVRcStyleUI;
-                    EditorPrefs.SetBool("Lyra.MenuManager.VRCStyle", _useVRcStyleUI);
-                    LoadSettings();
-                    
-                    var wins = Resources.FindObjectsOfTypeAll<MenuManagerSettings>();
-                    foreach (var w in wins){
-                        if (w != null) w.Repaint();
-                    }
-                }
-                GUI.backgroundColor = prevBg;
-
-                GUILayout.FlexibleSpace();
-
-                if (GUILayout.Button(EditorGUIUtility.IconContent("SettingsIcon"), GUILayout.Width(36), GUILayout.Height(30))){
-                    var wins = Resources.FindObjectsOfTypeAll<MenuManagerSettings>();
-                    if (wins.Length > 0){
-                        foreach (var w in wins){
-                            if (w != null) w.Close();
-                        }
-                    }
-                    else{
-                        MenuManagerSettings.ShowWindow();
-                    }
-                }
-
+                GUILayout.Space(8);
+                DrawGlobalSettings();
                 GUILayout.Space(12);
                 EditorGUILayout.EndHorizontal();
-                EditorGUILayout.Space(4);
 
-                _scrollPos = EditorGUILayout.BeginScrollView(_scrollPos);
+                EditorGUILayout.Space(6);
+
                 DrawRadialWheel();
                 DrawToolbar();
-                if (_showDetail && (_selectedIdx >= 0 || _selectedInventoryEntry != null))
+
+                if (_showDetail && (_selectedIdx >= 0 || _selectedInventoryEntry != null)){
+                    _detailScrollPos = EditorGUILayout.BeginScrollView(_detailScrollPos);
                     DrawDetailPanel();
-                EditorGUILayout.EndScrollView();
+                    EditorGUILayout.EndScrollView();
+                }
+                else{
+                    GUILayout.FlexibleSpace();
+                }
             }
 
             EditorGUILayout.EndVertical();

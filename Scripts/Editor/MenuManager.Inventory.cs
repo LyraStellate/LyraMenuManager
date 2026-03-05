@@ -125,26 +125,36 @@ namespace Lyra.Editor{
             EditorGUILayout.Space(60);
 
             EditorGUILayout.BeginHorizontal();
+            bool canBulkCollect = MenuManagerAuthGuard.CanUseBulkCollect();
+            EditorGUI.BeginDisabledGroup(!canBulkCollect);
             if (GUILayout.Button("現在の階層\nを回収", _sBtnSmall, GUILayout.Height(36))){
-                Undo.RecordObject(this, "Collect To Inventory");
-                _inventory.AddRange(FlattenMoreMenus(CurEntries()).Where(e => !e.IsBuildTime));
-                CurEntries().Clear();
-                _hasUnsavedChanges = true;
-                _selectedIdx = -1;
-                _needsOverflowReeval = true;
-                Repaint();
+                MenuManagerAuthGuard.GuardedBulkCollect(() => {
+                    Undo.RecordObject(this, "Collect To Inventory");
+                    _inventory.AddRange(FlattenMoreMenus(CurEntries()).Where(e => !e.IsBuildTime));
+                    CurEntries().Clear();
+                    _hasUnsavedChanges = true;
+                    _selectedIdx = -1;
+                    _needsOverflowReeval = true;
+                    Repaint();
+                });
             }
             if (GUILayout.Button("全回収", _sBtnSmall, GUILayout.Height(36))){
-                Undo.RecordObject(this, "Collect All recursive");
-                _inventory.AddRange(FlattenMoreMenus(_rootNode.Entries).Where(e => !e.IsBuildTime));
-                _rootNode.Entries.Clear();
-                _selectedIdx = -1;
-                NavToLevel(0);
-                _hasUnsavedChanges = true;
-                _needsOverflowReeval = true;
-                Repaint();
+                MenuManagerAuthGuard.GuardedBulkCollect(() => {
+                    Undo.RecordObject(this, "Collect All recursive");
+                    _inventory.AddRange(FlattenMoreMenus(_rootNode.Entries).Where(e => !e.IsBuildTime));
+                    _rootNode.Entries.Clear();
+                    _selectedIdx = -1;
+                    NavToLevel(0);
+                    _hasUnsavedChanges = true;
+                    _needsOverflowReeval = true;
+                    Repaint();
+                });
             }
+            EditorGUI.EndDisabledGroup();
             EditorGUILayout.EndHorizontal();
+            if (!canBulkCollect){
+                EditorGUILayout.LabelField("※ 一括回収はPro版でアンロックされます", EditorStyles.miniLabel);
+            }
             EditorGUILayout.Space(4);
 
             if (evt.type == EventType.ContextClick && r.Contains(evt.mousePosition)){
@@ -446,7 +456,7 @@ namespace Lyra.Editor{
                                 IsCustomFolder = true
                             };
 
-                            if (!MenuManagerAuth.ValidateLevel(depth + 1)) return;
+                            if (!MenuManagerAuthGuard.GuardedNavInto(depth + 1)) return;
                             capEntry.SubMenu.Entries.Add(newFolder);
 
                             _hasUnsavedChanges = true;

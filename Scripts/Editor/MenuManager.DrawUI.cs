@@ -19,11 +19,14 @@ namespace Lyra.Editor{
                 alignment = TextAnchor.MiddleCenter,
                 normal = { textColor = TEXT_PRI }
             };
-            _sCrumb = new GUIStyle(EditorStyles.miniButton){
+            _sCrumb = new GUIStyle(EditorStyles.label){
                 fontSize = 11,
-                padding = new RectOffset(8, 8, 3, 3),
-                normal = { textColor = ACCENT },
-                hover = { textColor = Color.white }
+                padding = new RectOffset(2, 2, 0, 0),
+                normal = { textColor = TEXT_SEC },
+                hover = { textColor = Color.white },
+                alignment = TextAnchor.MiddleCenter,
+                fontStyle = FontStyle.Normal,
+                margin = new RectOffset(0, 0, 0, 0)
             };
             _sLabel = new GUIStyle(EditorStyles.label){
                 fontSize = 11,
@@ -37,10 +40,11 @@ namespace Lyra.Editor{
                 normal = { textColor = TEXT_SEC }
             };
             _sBtn = new GUIStyle(GUI.skin.button){
-                fontSize = 12,
+                fontSize = 11,
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter,
-                padding = new RectOffset(14, 14, 6, 6)
+                padding = new RectOffset(12, 12, 3, 3),
+                fixedHeight = 26
             };
             _sCenter = new GUIStyle(EditorStyles.label){
                 alignment = TextAnchor.MiddleCenter,
@@ -60,6 +64,56 @@ namespace Lyra.Editor{
             _sBtnSmall = new GUIStyle(_sBtn){ fontSize = 11 };
             _sTextFieldLeft = new GUIStyle(EditorStyles.textField){ alignment = TextAnchor.MiddleLeft };
             _sBadgeBold = new GUIStyle(_sSmall){ fontStyle = FontStyle.Bold };
+
+            _sIconBtn = new GUIStyle(EditorStyles.miniButton){
+                padding = new RectOffset(4, 4, 4, 4),
+                fixedWidth = 26,
+                fixedHeight = 26
+            };
+
+            _sBtnIcon = new GUIStyle(_sBtn){
+                padding = new RectOffset(4, 4, 4, 4),
+                fixedWidth = 30
+            };
+
+            _sHeaderDropZone = new GUIStyle(_sHeader){
+                fontSize = 16,
+                normal = { textColor = TEXT_SEC },
+                wordWrap = true
+            };
+            
+            _sCrumbSep = new GUIStyle(EditorStyles.miniLabel) { 
+                normal = { textColor = TEXT_SEC * 0.7f },
+                padding = new RectOffset(0, 0, 0, 0),
+                margin = new RectOffset(4, 4, 4, 0),
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 10
+            };
+            
+            _sCrumbNorm = new GUIStyle(EditorStyles.label) {
+                fontSize = 11,
+                padding = new RectOffset(4, 4, 0, 0),
+                margin = new RectOffset(0, 0, 2, 0),
+                alignment = TextAnchor.MiddleCenter,
+                normal = { textColor = TEXT_SEC }
+            };
+
+            _sCrumbBold = new GUIStyle(EditorStyles.boldLabel) {
+                fontSize = 11,
+                padding = new RectOffset(4, 4, 0, 0),
+                margin = new RectOffset(0, 0, 2, 0),
+                alignment = TextAnchor.MiddleCenter,
+                normal = { textColor = TEXT_PRI }
+            };
+            
+            _sCrumbHover = new GUIStyle(_sCrumbNorm) {
+                normal = { textColor = Color.white }
+            };
+
+            _sCenterPlus = new GUIStyle(_sCenter){
+                fontSize = 18,
+                normal = { textColor = new Color(1, 1, 1, 0.12f) }
+            };
 
             _stylesOk = true;
         }
@@ -102,17 +156,23 @@ namespace Lyra.Editor{
 
                     EditorGUILayout.BeginHorizontal();
                     EditorGUILayout.LabelField("Extended", GUILayout.Width(60));
-                    EditorGUI.BeginChangeCheck();
-                    var eAsset = (MenuLayoutDataAsset)EditorGUILayout.ObjectField(
-                         "", layoutData.ExtendedLayout, typeof(MenuLayoutDataAsset), false);
-                    if (EditorGUI.EndChangeCheck()){
-                        Undo.RecordObject(layoutData, "Change Extended Layout");
-                        layoutData.ExtendedLayout = eAsset;
-                        EditorUtility.SetDirty(layoutData);
+                    bool isPro = MenuManagerAuthGuard.CanUseExtended();
+                    if (isPro){
+                        EditorGUI.BeginChangeCheck();
+                        var eAsset = (MenuLayoutDataAsset)EditorGUILayout.ObjectField(
+                             "", layoutData.ExtendedLayout, typeof(MenuLayoutDataAsset), false);
+                        if (EditorGUI.EndChangeCheck()){
+                            Undo.RecordObject(layoutData, "Change Extended Layout");
+                            layoutData.ExtendedLayout = eAsset;
+                            EditorUtility.SetDirty(layoutData);
+                        }
+                        if (layoutData.ExtendedLayout == null && GUILayout.Button("New", GUILayout.Width(40))){
+                            layoutData.ExtendedLayout = CreateNewLayoutAsset(_avatar.gameObject.name + "_Extended");
+                            EditorUtility.SetDirty(layoutData);
+                        }
                     }
-                    if (layoutData.ExtendedLayout == null && GUILayout.Button("New", GUILayout.Width(40))){
-                        layoutData.ExtendedLayout = CreateNewLayoutAsset(_avatar.gameObject.name + "_Extended");
-                        EditorUtility.SetDirty(layoutData);
+                    else{
+                        EditorGUILayout.LabelField("※ Pro版でアンロック", EditorStyles.miniLabel);
                     }
                     EditorGUILayout.EndHorizontal();
 
@@ -158,11 +218,7 @@ namespace Lyra.Editor{
 
             GUI.Label(r,
                 "ここにアバターを\nドラッグ＆ドロップ\n\n⇩",
-                new GUIStyle(_sHeader){
-                    fontSize = 16,
-                    normal = { textColor = TEXT_SEC },
-                    wordWrap = true
-                });
+                _sHeaderDropZone);
 
             if (evt.type == EventType.DragUpdated && r.Contains(evt.mousePosition)){
                 DragAndDrop.visualMode = GrabAvatarFromDrag() != null
@@ -182,25 +238,45 @@ namespace Lyra.Editor{
             }
         }
 
+        private int _totalCrumbWidth = 0;
         private void DrawBreadcrumbs(){
             _dropCrumbIdx = -1;
-            var r = GUILayoutUtility.GetRect(0, 26, GUILayout.ExpandWidth(true));
-            EditorGUI.DrawRect(r, CRUMB_BG);
-            float x = r.x + 10;
+            var evt = Event.current;
+
             for (int i = 0; i < _navStack.Count; i++){
+                bool isLast = (i == _navStack.Count - 1);
                 var nm = string.IsNullOrEmpty(_navStack[i].Name) ? "Root" : _navStack[i].Name;
-                var gc = new GUIContent(i == 0 ? nm : "› " + nm);
-                var sz = _sCrumb.CalcSize(gc);
-                var br = new Rect(x, r.y + 2, sz.x + 4, r.height - 4);
-                if (i == _navStack.Count - 1)
-                    EditorGUI.DrawRect(new Rect(br.x, br.yMax - 2, br.width, 2), ACCENT);
+                
+                if (i > 0) {
+                    var sepContent = new GUIContent(">");
+                    var szSep = _sCrumbSep.CalcSize(sepContent);
+                    GUILayout.Label(sepContent, _sCrumbSep, GUILayout.Width(szSep.x), GUILayout.Height(28));
+                }
 
-                var prevBg = GUI.backgroundColor;
-                if (_isDragging && _dragIdx >= 0 && i < _navStack.Count - 1 && br.Contains(Event.current.mousePosition)){
+                var gc = new GUIContent(nm);
+                GUIStyle baseStyle = isLast ? _sCrumbBold : _sCrumbNorm;
+                var sz = baseStyle.CalcSize(gc);
+                
+                var rc = GUILayoutUtility.GetRect(sz.x + 2, 28, GUILayout.ExpandWidth(false));
+                
+                bool isHover = rc.Contains(evt.mousePosition);
+                GUIStyle currentStyle = isHover ? _sCrumbHover : baseStyle;
+                
+                if (isLast) {
+                    var activeBg = ACCENT * 0.15f;
+                    activeBg.a = 0.3f;
+                    EditorGUI.DrawRect(rc, activeBg);
+                    EditorGUI.DrawRect(new Rect(rc.x, rc.yMax - 1, rc.width, 2), ACCENT);
+                }
+                else if (isHover) {
+                    EditorGUI.DrawRect(rc, Color.white * 0.1f);
+                }
+
+                if (_isDragging && _dragIdx >= 0 && !isLast && isHover){
                     _dropCrumbIdx = i;
-                    GUI.backgroundColor = new Color(0.20f, 0.70f, 0.20f, 0.85f);
+                    EditorGUI.DrawRect(rc, new Color(0.20f, 0.70f, 0.20f, 0.4f)); 
 
-                    if (Event.current.rawType == EventType.MouseUp){
+                    if (evt.rawType == EventType.MouseUp){
                         var targetNode = _navStack[i].Node;
                         if (_dragFromInventory && _dragInventoryEntry != null){
                             Undo.RecordObject(this, "Drop from Inventory");
@@ -227,17 +303,32 @@ namespace Lyra.Editor{
                         _dragIdx = -1;
                         _dropBorderIdx = -1;
                         _dropCrumbIdx = -1;
-                        Event.current.Use();
-                        GUI.backgroundColor = prevBg;
+                        evt.Use();
                         return;
                     }
                 }
 
-                if (GUI.Button(br, gc, _sCrumb))
+                if (GUI.Button(rc, gc, currentStyle)){
                     NavToLevel(i);
+                    GUIUtility.ExitGUI();
+                }
+            }
+        }
 
-                GUI.backgroundColor = prevBg;
-                x += sz.x + 6;
+        private GUIContent _settingsIconContent;
+        private void DrawGlobalSettings(){
+            if (_settingsIconContent == null || _settingsIconContent.image == null){
+                _settingsIconContent = new GUIContent(GetIcon("settings.png"), "設定");
+            }
+            if (GUILayout.Button(_settingsIconContent, _sIconBtn, GUILayout.Width(28), GUILayout.Height(28))){
+                var wins = Resources.FindObjectsOfTypeAll<MenuManagerSettings>();
+                bool anyOpen = false;
+                foreach (var w in wins) if (w != null){ anyOpen = true; break; }
+                if (anyOpen) {
+                    foreach (var w in wins) if (w != null) w.Close();
+                } else {
+                    MenuManagerSettings.ShowWindow();
+                }
             }
         }
 
@@ -293,6 +384,7 @@ namespace Lyra.Editor{
                 }
             }
 
+            int prevHoverIdx = _hoverIdx;
             _hoverIdx = -1;
             if (InRing(evt.mousePosition, center) && _dropBorderIdx < 0){
                 _hoverIdx = CalcSlice(evt.mousePosition, center, sliceN, startA);
@@ -424,8 +516,11 @@ namespace Lyra.Editor{
                     var tc = TypeColor(entry.Type);
                     var badge = new Rect(ic.x - 22, ic.y + ICON_SIZE / 2f + 14, 44, 14);
                     EditorGUI.DrawRect(badge, tc * 0.35f);
-                    var badgeStyle = new GUIStyle(_sBadge) { normal = { textColor = tc } };
-                    GUI.Label(badge, TypeShort(entry.Type), badgeStyle);
+                    
+                    var oldBadgeTC = _sBadge.normal.textColor;
+                    _sBadge.normal.textColor = tc;
+                    GUI.Label(badge, TypeShort(entry.Type), _sBadge);
+                    _sBadge.normal.textColor = oldBadgeTC;
                 }
                 else if (isDummyBack){
                     string txt = isRoot ? "HOME" : "Back";
@@ -435,11 +530,7 @@ namespace Lyra.Editor{
                     GUI.Label(new Rect(ic.x - 52, ic.y - 10, 104, 20), "Quick Actions", _sLabel);
                 }
                 else{
-                    GUI.Label(new Rect(ic.x - 10, ic.y - 8, 20, 16), "+",
-                        new GUIStyle(_sCenter){
-                            fontSize = 18,
-                            normal = { textColor = new Color(1, 1, 1, 0.12f) }
-                        });
+                    GUI.Label(new Rect(ic.x - 10, ic.y - 8, 20, 16), "+", _sCenterPlus);
                 }
             }
 
@@ -476,11 +567,10 @@ namespace Lyra.Editor{
                 cTxt = $"{entries.Count}/{MAX_CONTROLS}";
                 cCol = TEXT_SEC;
             }
-            GUI.Label(new Rect(center.x - 30, center.y - 10, 60, 20), cTxt,
-                new GUIStyle(_sCenter){
-                    fontSize = 12,
-                    normal = { textColor = cCol }
-                });
+            var oldCenterTC = _sCenterLarge.normal.textColor;
+            _sCenterLarge.normal.textColor = cCol;
+            GUI.Label(new Rect(center.x - 30, center.y - 10, 60, 20), cTxt, _sCenterLarge);
+            _sCenterLarge.normal.textColor = oldCenterTC;
 
             HandleInput(evt, center, entries);
 
@@ -493,89 +583,43 @@ namespace Lyra.Editor{
                     new Color(1f, 0.85f, 0.2f), 5f);
             }
 
-            if (evt.type == EventType.MouseMove) Repaint();
+            if (evt.type == EventType.MouseMove) {
+                if (prevHoverIdx != _hoverIdx) {
+                    Repaint();
+                }
+            }
         }
 
         private void DrawToolbar(){
             EditorGUILayout.Space(6);
             
-            float viewWidth = EditorGUIUtility.currentViewWidth - (_showInventory ? 220f : 30f) - 20f;
-            float centerPaddingMoveMode = Mathf.Max(0, (viewWidth - 300f) / 2f);
-            float centerPaddingNormal = Mathf.Max(0, (viewWidth - 425f) / 2f);
-            float centerPaddingSave = Mathf.Max(0, (viewWidth - 260f) / 2f);
+            EditorGUILayout.BeginHorizontal(GUILayout.Height(26));
+            GUILayout.FlexibleSpace();
+            
+            var entries = CurEntries();
+            GUI.enabled = entries.Count < MAX_CONTROLS;
+            if (GUILayout.Button("フォルダ作成", _sBtn, GUILayout.Width(140)))
+                AddNewSubMenu();
+            GUI.enabled = true;
+            
+            GUILayout.Space(12);
 
-            if (_isMoveMode && _cutEntry != null){
-                var moveBar = EditorGUILayout.BeginHorizontal();
-                EditorGUI.DrawRect(
-                    new Rect(moveBar.x + 16, moveBar.y, moveBar.width - 32, 28),
-                    new Color(0.45f, 0.30f, 0.10f, 0.5f));
-                
-                GUILayout.Space(Mathf.Max(0, (viewWidth - 400f) / 2f));
-                EditorGUILayout.LabelField(
-                    $"移動中: 「{_cutEntry.Name}」 → 目的の階層に移動して貼り付け",
-                    new GUIStyle(EditorStyles.label){
-                        normal = { textColor = ACCENT_SUB },
-                        alignment = TextAnchor.MiddleCenter,
-                        fontStyle = FontStyle.Bold
-                    });
-                GUILayout.FlexibleSpace();
-                EditorGUILayout.EndHorizontal();
-                EditorGUILayout.Space(2);
-
-                EditorGUILayout.BeginHorizontal();
-                GUILayout.Space(centerPaddingMoveMode);
-                var curEntries = CurEntries();
-                GUI.enabled = curEntries.Count < MAX_CONTROLS;
-                if (GUILayout.Button("ここに移動", _sBtn, GUILayout.Width(140))){
-                    PasteCutEntry();
-                }
-                GUI.enabled = true;
-                if (GUILayout.Button("キャンセル", _sBtn, GUILayout.Width(140))){
-                    if (_cutSourceNode != null && _cutEntry != null)
-                        _cutSourceNode.Entries.Add(_cutEntry);
-                    CancelMoveMode();
-                    Repaint();
-                }
-                GUILayout.FlexibleSpace();
-                EditorGUILayout.EndHorizontal();
-            }
-            else{
-                EditorGUILayout.BeginHorizontal();
-                centerPaddingNormal = Mathf.Max(0, (viewWidth - 300f) / 2f);
-                GUILayout.Space(centerPaddingNormal);
-
-                var entries = CurEntries();
-                GUI.enabled = entries.Count < MAX_CONTROLS;
-                if (GUILayout.Button("フォルダ作成", _sBtn, GUILayout.Width(200)))
-                    AddNewSubMenu();
-                GUI.enabled = true;
-                
-                if (GUILayout.Button("リロード", _sBtn, GUILayout.Width(100)))
-                    RebuildMenu();
-
-                GUILayout.FlexibleSpace();
-                EditorGUILayout.EndHorizontal();
-            }
-
-            EditorGUILayout.Space(4);
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Space(centerPaddingSave);
-
-            var applyStyle = new GUIStyle(_sBtn){
-                fontStyle = FontStyle.Bold,
-                fontSize = 12
-            };
             var prevBg = GUI.backgroundColor;
-            GUI.backgroundColor = _hasUnsavedChanges
-                ? new Color(0.3f, 0.8f, 0.4f)
-                : new Color(0.5f, 0.5f, 0.5f);
-            if (GUILayout.Button("保存", applyStyle, GUILayout.Width(260))){
+            GUI.backgroundColor = _hasUnsavedChanges ? new Color(0.2f, 0.9f, 0.5f) : new Color(0.6f, 0.6f, 0.6f);
+            if (GUILayout.Button("保存", _sBtn, GUILayout.Width(120))){
                 SaveLayout();
             }
             GUI.backgroundColor = prevBg;
 
+            GUILayout.Space(8);
+            var reloadContent = EditorGUIUtility.IconContent("Refresh");
+            reloadContent.tooltip = "再読み込み";
+            if (GUILayout.Button(reloadContent, _sBtnIcon))
+                RebuildMenu();
+            
             GUILayout.FlexibleSpace();
             EditorGUILayout.EndHorizontal();
+            EditorGUILayout.Space(4);
         }
 
         private void DrawDetailPanel(){
@@ -605,30 +649,9 @@ namespace Lyra.Editor{
             EditorGUILayout.LabelField("選択中のアイテム", _sHeader);
             EditorGUILayout.Space(4);
 
-            EditorGUILayout.BeginHorizontal();
-            if (!isFromInventory){
-                if (e.Type == VRCExpressionsMenu.Control.ControlType.SubMenu && e.SubMenu != null){
-                    if (GUILayout.Button("サブメニューを開く", _sBtn, GUILayout.Width(160))){
-                        NavInto(_selectedIdx);
-                        GUIUtility.ExitGUI();
-                    }
-                }
-                if (!_isMoveMode){
-                    if (GUILayout.Button("別の階層に移動", _sBtn, GUILayout.Width(160))){
-                        StartMoveMode(_selectedIdx);
-                        GUIUtility.ExitGUI();
-                    }
-                }
-            }
-            EditorGUILayout.EndHorizontal();
-
-            EditorGUILayout.Space(6);
-            EditorGUI.DrawRect(GUILayoutUtility.GetRect(10, 1), SEPARATOR);
-            EditorGUILayout.Space(4);
-
-            bool isProRestricted = !isFromInventory && MenuManagerAuth.RequestStatusText(_navStack.Count - 1) != null;
+            bool isProRestricted = !isFromInventory && MenuManagerAuthGuard.GetDepthStatusText(_navStack.Count - 1) != null;
             if (isProRestricted){
-                EditorGUILayout.HelpBox("🛡️ 第3階層以上の編集は Pro 版限定機能です。", MessageType.Warning);
+                EditorGUILayout.HelpBox("️ 第3階層以上の編集は 有料版限定機能です。", MessageType.Warning);
                 if (GUILayout.Button("認証ウィンドウを開く", GUILayout.Height(24))){
                     MenuManagerAuthWindow.ShowWindow();
                 }
@@ -695,10 +718,6 @@ namespace Lyra.Editor{
                 
                 EditorGUILayout.TextField("名前", e.Name ?? "");
             }
-            EditorGUILayout.LabelField("タイプ", e.Type.ToString());
-            EditorGUILayout.LabelField("パラメータ",
-                string.IsNullOrEmpty(e.Parameter) ? "(none)" : e.Parameter);
-            EditorGUILayout.LabelField("値", e.Value.ToString("F2"));
 
             EditorGUI.BeginChangeCheck();
             var newIcon = (Texture2D)EditorGUILayout.ObjectField("アイコン", e.Icon, typeof(Texture2D), false, GUILayout.Height(EditorGUIUtility.singleLineHeight));
@@ -709,11 +728,23 @@ namespace Lyra.Editor{
                 Repaint();
             }
 
-            if (e.Icon != null){
-                EditorGUILayout.Space(4);
-                var ir = GUILayoutUtility.GetRect(64, 64, GUILayout.Width(64));
-                GUI.DrawTexture(ir, e.Icon, ScaleMode.ScaleToFit);
+            EditorGUILayout.Space(4);
+
+            EditorGUILayout.BeginHorizontal();{
+                EditorGUILayout.BeginVertical();
+                EditorGUILayout.LabelField("タイプ", e.Type.ToString());
+                EditorGUILayout.LabelField("パラメータ",
+                    string.IsNullOrEmpty(e.Parameter) ? "(none)" : e.Parameter);
+                EditorGUILayout.LabelField("値", e.Value.ToString("F2"));
+                EditorGUILayout.EndVertical();
+
+                if (e.Icon != null){
+                    GUILayout.Space(10);
+                    var ir = GUILayoutUtility.GetRect(64, 64, GUILayout.Width(64), GUILayout.Height(64));
+                    GUI.DrawTexture(ir, e.Icon, ScaleMode.ScaleToFit);
+                }
             }
+            EditorGUILayout.EndHorizontal();
 
             EditorGUI.EndDisabledGroup();
 

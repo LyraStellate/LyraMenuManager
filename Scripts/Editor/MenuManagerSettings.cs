@@ -73,7 +73,7 @@ namespace Lyra.Editor{
 
             EditorGUILayout.Space(5);
 
-            bool autoAddRoot = EditorPrefs.GetBool("Lyra.MenuManager.AutoAddNewItemsToRoot", false);
+            bool autoAddRoot = EditorPrefs.GetBool("Lyra.MenuManager.AutoAddNewItemsToRoot", true);
             autoAddRoot = EditorGUILayout.ToggleLeft(" 新規アイテム追加時にルートに自動追加する", autoAddRoot);
 
             if (EditorGUI.EndChangeCheck()){
@@ -82,6 +82,16 @@ namespace Lyra.Editor{
                 EditorPrefs.SetBool("Lyra.MenuManager.AutoAddNewItemsToRoot", autoAddRoot);
                 NotifyMain();
             }
+            
+            GUILayout.Space(10);
+
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Space(10);
+            if (GUILayout.Button("データ管理...", GUILayout.Height(28))){
+                MenuManagerDataManager.ShowWindow();
+            }
+            GUILayout.Space(10);
+            EditorGUILayout.EndHorizontal();
 
             EditorGUILayout.Space(25);
 
@@ -134,7 +144,8 @@ namespace Lyra.Editor{
                 string advHelp = isJa
                     ? "他のNDMFプラグインとの干渉でエラーが発生する場合、\n" +
                       "問題のプラグインの後に実行するプラグイン順序(.after)をプロジェクト共通で設定します。\n" +
-                      "干渉しているプラグインのコンポーネントをドロップするか、一覧から選択してください。"
+                      "干渉しているプラグインのコンポーネントをドロップするか、一覧から選択してください。\n" +
+                      "なお、適用にはプロジェクトの再読み込みが必要です。"
                     : "If errors occur due to conflicts with other NDMF plugins,\n" +
                       "you can configure project-wide .after ordering for this plugin.\n" +
                       "Drop a component from the conflicting plugin, or select from the list.";
@@ -410,7 +421,7 @@ namespace Lyra.Editor{
                     fontSize = 11,
                     normal = { textColor = new Color(0.4f, 0.9f, 0.5f) }
                 };
-                GUI.Label(statusRect, "✅ Pro版 認証済み", statusStyle);
+                GUI.Label(statusRect, " 有料版 認証済み", statusStyle);
 
                 GUILayout.Space(10);
                 EditorGUILayout.EndHorizontal();
@@ -422,7 +433,7 @@ namespace Lyra.Editor{
                 var prevBg = GUI.backgroundColor;
                 GUI.backgroundColor = new Color(0.12f, 0.65f, 0.65f);
 
-                if (GUILayout.Button("🔐 Pro版をロック解除", GUILayout.Height(32))){
+                if (GUILayout.Button(" 有料版をロック解除", GUILayout.Height(32))){
                     MenuManagerAuthWindow.ShowWindow();
                 }
                 GUI.backgroundColor = prevBg;

@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 
 using System;
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using VRC.SDK3.Avatars.Components;
@@ -32,6 +33,9 @@ namespace Lyra.Editor{
         }
 
         private Texture2D GetIcon(string iconName){
+            if (_iconCache == null) _iconCache = new Dictionary<string, Texture2D>();
+            if (_iconCache.TryGetValue(iconName, out var cached) && cached != null) return cached;
+
             string assetName = System.IO.Path.GetFileNameWithoutExtension(iconName);
             Texture2D tex = AssetDatabase.LoadAssetAtPath<Texture2D>($"Assets/Lyra/EditorTool/MenuManager/Icon/{iconName}");
             if (tex == null){
@@ -44,6 +48,7 @@ namespace Lyra.Editor{
                     }
                 }
             }
+            _iconCache[iconName] = tex;
             return tex;
         }
 
@@ -115,9 +120,13 @@ namespace Lyra.Editor{
                 case VRCExpressionsMenu.Control.ControlType.FourAxisPuppet: ico = "✦"; break;
                 default: ico = "?"; break;
             }
-            GUI.Label(r, ico, new GUIStyle(_sCenter){
-                fontSize = (int)(14 * (s / 26f)), normal = { textColor = tc }
-            });
+            var oldTC = _sCenter.normal.textColor;
+            var oldSize = _sCenter.fontSize;
+            _sCenter.normal.textColor = tc;
+            _sCenter.fontSize = (int)(14 * (s / 26f));
+            GUI.Label(r, ico, _sCenter);
+            _sCenter.fontSize = oldSize;
+            _sCenter.normal.textColor = oldTC;
         }
 
         private void DrawDisc(Vector2 c, float r, Color col){
@@ -168,7 +177,7 @@ namespace Lyra.Editor{
         }
 
         private bool CheckProLimit(int depth){
-            return MenuManagerAuth.ValidateLevel(depth);
+            return MenuManagerAuthGuard.GuardedNavInto(depth);
         }
     }
 }

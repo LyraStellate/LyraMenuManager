@@ -79,7 +79,7 @@ namespace Lyra.Editor{
         }
 
         private void NavInto(int idx){
-            if (!MenuManagerAuth.TryNavInto(_navStack.Count)) return;
+            if (!MenuManagerAuthGuard.GuardedNavInto(_navStack.Count)) return;
 
             ForceEndInlineRename();
             var entries = CurEntries();
@@ -182,7 +182,7 @@ namespace Lyra.Editor{
                 PersistentId = newId
             };
 
-            if (!MenuManagerAuth.ValidateLevel(_navStack.Count)) return;
+            if (!MenuManagerAuthGuard.GuardedNavInto(_navStack.Count)) return;
             CurEntries().Add(virtualEntry);
 
             _hasUnsavedChanges = true;
@@ -250,44 +250,7 @@ namespace Lyra.Editor{
             _selectedInventoryEntry = null;
             _showDetail = false;
             _editingNameIdx = -1;
-            CancelMoveMode();
             _hasUnsavedChanges = false;
-        }
-
-        private void CancelMoveMode(){
-            _isMoveMode = false;
-            _cutEntry = null;
-            _cutSourceNode = null;
-        }
-
-        private void StartMoveMode(int idx){
-            var entries = CurEntries();
-            if (idx < 0 || idx >= entries.Count) return;
-
-            Undo.RecordObject(this, "Cut Menu Item");
-
-            _cutEntry = entries[idx];
-            _cutSourceNode = _navStack[_navStack.Count - 1].Node;
-            _cutSourceNode.Entries.RemoveAt(idx);
-
-            _isMoveMode = true;
-            _selectedIdx = -1;
-            _showDetail = false;
-            _hasUnsavedChanges = true;
-            Repaint();
-        }
-
-        private void PasteCutEntry(){
-            if (_cutEntry == null) return;
-
-            var curNode = _navStack[_navStack.Count - 1].Node;
-
-            Undo.RecordObject(this, "Paste Menu Item");
-
-            InsertItemWithOverflow(curNode, curNode.Entries.Count, _cutEntry);
-            CancelMoveMode();
-            _hasUnsavedChanges = true;
-            Repaint();
         }
 
         private void ResetSubmenu(MenuEntry target, IList<MenuEntry> parentList){

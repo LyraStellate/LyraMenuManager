@@ -19,7 +19,8 @@ namespace Lyra{
 
         protected override void Configure(){
             var seq = InPhase(BuildPhase.Transforming)
-                .AfterPlugin("nadena.dev.modular-avatar");
+                .AfterPlugin("nadena.dev.modular-avatar")
+                .AfterPlugin("com.uminato.changelocomotionkai");
 
             try{
                 var afterPlugins = new HashSet<string>();

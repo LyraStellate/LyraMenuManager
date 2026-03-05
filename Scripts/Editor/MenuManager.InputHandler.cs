@@ -329,12 +329,8 @@ namespace Lyra.Editor{
                     menu.AddDisabledItem(new GUIContent("削除 (作成したフォルダのみ可)"));
                 }
             }
-            else if (entries.Count < MAX_CONTROLS){
+            if (entries.Count < MAX_CONTROLS){
                 menu.AddItem(new GUIContent("フォルダ追加"), false, () => AddNewSubMenu());
-            }
-            if (has && !_isMoveMode){
-                menu.AddSeparator("");
-                menu.AddItem(new GUIContent("別の階層に移動"), false, () => StartMoveMode(idx));
             }
 
             menu.ShowAsContext();

@@ -15,12 +15,6 @@ namespace Lyra.Editor{
                 return;
             }
 
-            if (_isMoveMode){
-                if (!silent) EditorUtility.DisplayDialog("Menu Manager",
-                    "移動モード中は保存できません。\n貼り付けまたはキャンセルしてください。", "OK");
-                return;
-            }
-
             var layoutData = _avatar.GetComponent<MenuLayoutData>();
             if (layoutData == null){
                 Undo.AddComponent<MenuLayoutData>(_avatar.gameObject);
@@ -39,7 +33,37 @@ namespace Lyra.Editor{
             if (layoutData.BaseLayout == null){
                 layoutData.BaseLayout = CreateNewLayoutAsset(_avatar.gameObject.name + "_Base");
             }
-            MenuManagerAuth.SaveLayoutData(layoutData.BaseLayout, layoutData.ExtendedLayout, allItems);
+            else if (layoutData.ExtendedLayout == null && !silent) {
+                int choice = EditorUtility.DisplayDialogComplex("保存方法の確認",
+                    "Baseレイアウトが既に存在します。どのように保存しますか？\n\n",
+                    "上書き保存", "キャンセル", "その他の保存...");
+
+                if (choice == 1) return;
+
+                if (choice == 2) {
+                    int subChoice = EditorUtility.DisplayDialogComplex("その他の保存方法",
+                        "保存方法を選択してください。",
+                        "新規保存", "キャンセル", "差分のみ保存");
+                    
+                    if (subChoice == 1) return;
+                    
+                    if (subChoice == 0) {
+                        layoutData.BaseLayout = CreateNewLayoutAsset(_avatar.gameObject.name + "_Base_" + DateTime.Now.ToString("MMddHHmm"));
+                        layoutData.ExtendedLayout = null;
+                    } 
+                    else if (subChoice == 2) {
+                        if (!MenuManagerAuthGuard.CanUseExtended()){
+                            EditorUtility.DisplayDialog("Menu Manager",
+                                "差分保存はPro版限定機能です。\n認証をお願いします。", "OK");
+                            return;
+                        }
+                        if (layoutData.ExtendedLayout == null) {
+                            layoutData.ExtendedLayout = CreateNewLayoutAsset(_avatar.gameObject.name + "_Extended");
+                        }
+                    }
+                }
+            }
+            MenuManagerAuthGuard.GuardedSaveLayout(layoutData.BaseLayout, layoutData.ExtendedLayout, allItems);
 
             AssetDatabase.SaveAssets();
             EditorUtility.SetDirty(layoutData);
@@ -56,7 +80,6 @@ namespace Lyra.Editor{
                     $"メニューレイアウトを保存しました。\n\n" +
                     $"アイテム数: {allItems.Count}\n\n" +
                     $"保存先: {(layoutData.ExtendedLayout != null ? "Extended Layout" : "Base Layout")}\n\n" +
-                    $"※ 内部保存は廃止され、データはすべてアセットに保存されました。\n" +
                     $"※ ビルド時にNDMFプラグインが自動でメニューを並び替えます。",
                     "OK");
             }
