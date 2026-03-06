@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.4] - 2026-03-06
+
+### Added
+- 認証が通らない際のフォールバックとして、手動認証を可能にするボタンを追加
+
+### Fixed
+- アップロード時とPlayモードでのビルドでのメニューレイアウトが異なる問題を修正
+- オブジェクトの参照をエディター全体からヒエラルキー単位に修正
+
+
+## [0.8.3] - 2026-03-06
+
+### Changed
+- 古い無効なデータが蓄積し続ける問題を解消するため、メニューデータの保存挙動をデリートインサート方式に変更。
+
+### Fixed
+- ビルド時に保存済みのメニュー項目が正しく認識されず、ルートやインベントリに散らばってしまう不具合を修正。
+
+## [0.8.0] - 2026-03-05
+
+### Changed
+- メニュー管理の内部 ID マッチングを大幅に強化、`GlobalObjectId`を最優先で参照するように変更し、アセット名変更への耐性を向上。
+- 文字列キーへの依存を減らし、データの追跡精度を向上（下位互換性は維持）
+- `MenuLayoutData` のシリアライズ形式と GUI スタイル定義を最適化し、エディタ実行時の GC 負荷とパフォーマンスを改善。
+
 ## [0.7.0] - 2026-03-05
 
 ### Changed

@@ -102,7 +102,9 @@ namespace Lyra{
             Dictionary<string, int> keyCounts,
             HashSet<VRCExpressionsMenu> visited
         ){
-            if (menu == null || menu.controls == null || !visited.Add(menu)) return;
+            if (menu == null || menu.controls == null) return;
+            
+            if (!visited.Add(menu)) return;
 
             for (int i = 0; i < menu.controls.Count; i++){
                 var ctrl = menu.controls[i];
@@ -166,33 +168,43 @@ namespace Lyra{
                             var obj = UnityEditor.GlobalObjectId.GlobalObjectIdentifierToObjectSlow(gid);
                             if (obj is GameObject go){
                                 var menuItem = go.GetComponent<ModularAvatarMenuItem>();
-                                if (menuItem != null && menuItem.Control != null && !string.IsNullOrEmpty(menuItem.Control.name)){
-                                    nameStr = menuItem.Control.name;
-                                    typeStr = menuItem.Control.type.ToString();
-                                    paramStr = menuItem.Control.parameter?.name ?? "";
-                                    valStr = menuItem.Control.value.ToString("F2");
+                                if (menuItem != null){
+                                    nameStr = string.IsNullOrEmpty(menuItem.label) ? go.name : menuItem.label;
+                                    var c = menuItem.Control ?? new VRCExpressionsMenu.Control();
+                                    typeStr = c.type.ToString();
+                                    paramStr = c.parameter?.name ?? "";
+                                    valStr = c.value.ToString("F2");
                                     mk = $"{typeStr}:{nameStr}:{paramStr}:{valStr}:{counterStr}";
                                 }
                                 else {
                                     var installer = go.GetComponent<ModularAvatarMenuInstaller>();
-                                    if (installer != null && installer.menuToAppend != null){
-                                        nameStr = installer.menuToAppend.name;
-                                        typeStr = VRCExpressionsMenu.Control.ControlType.SubMenu.ToString();
+                                    if (installer != null){
+                                        if (installer.menuToAppend != null){
+                                            nameStr = installer.menuToAppend.name;
+                                            typeStr = VRCExpressionsMenu.Control.ControlType.SubMenu.ToString();
+                                        }
+                                        else {
+                                            nameStr = go.name;
+                                            typeStr = VRCExpressionsMenu.Control.ControlType.SubMenu.ToString();
+                                        }
                                     }
                                 }
                             }
                             else if (obj is ModularAvatarMenuItem menuItem){
-                                if (menuItem.Control != null && !string.IsNullOrEmpty(menuItem.Control.name)){
-                                    nameStr = menuItem.Control.name;
-                                    typeStr = menuItem.Control.type.ToString();
-                                    paramStr = menuItem.Control.parameter?.name ?? "";
-                                    valStr = menuItem.Control.value.ToString("F2");
-                                    mk = $"{typeStr}:{nameStr}:{paramStr}:{valStr}:{counterStr}";
-                                }
+                                nameStr = string.IsNullOrEmpty(menuItem.label) ? (menuItem.gameObject != null ? menuItem.gameObject.name : nameStr) : menuItem.label;
+                                var c = menuItem.Control ?? new VRCExpressionsMenu.Control();
+                                typeStr = c.type.ToString();
+                                paramStr = c.parameter?.name ?? "";
+                                valStr = c.value.ToString("F2");
+                                mk = $"{typeStr}:{nameStr}:{paramStr}:{valStr}:{counterStr}";
                             }
                             else if (obj is ModularAvatarMenuInstaller installer){
                                 if (installer.menuToAppend != null){
                                     nameStr = installer.menuToAppend.name;
+                                    typeStr = VRCExpressionsMenu.Control.ControlType.SubMenu.ToString();
+                                }
+                                else if (installer.gameObject != null){
+                                    nameStr = installer.gameObject.name;
                                     typeStr = VRCExpressionsMenu.Control.ControlType.SubMenu.ToString();
                                 }
                             }
@@ -521,6 +533,16 @@ namespace Lyra{
 
             for (int j = 0; j < parsedItems.Count; j++)
                 if (parsedItems[j].Key1 == key1 && (consumed == null || !consumed.Contains(parsedItems[j]))) return parsedItems[j];
+
+            int lastColon = key1.LastIndexOf(':');
+            if (lastColon > 0) {
+                string baseKey = key1.Substring(0, lastColon);
+                for (int j = 0; j < parsedItems.Count; j++) {
+                    string pKey = parsedItems[j].Key1;
+                    int pLastColon = pKey.LastIndexOf(':');
+                    if (pLastColon > 0 && pKey.Substring(0, pLastColon) == baseKey && (consumed == null || !consumed.Contains(parsedItems[j]))) return parsedItems[j];
+                }
+            }
 
             for (int j = 0; j < parsedItems.Count; j++)
                 if (parsedItems[j].Key2 == key2 && (consumed == null || !consumed.Contains(parsedItems[j]))) return parsedItems[j];
