@@ -258,20 +258,7 @@ namespace Lyra.Editor{
 
             var freshNode = new MenuNode();
             var visited = new HashSet<VRCExpressionsMenu>();
-            var m2i = new Dictionary<VRCExpressionsMenu, List<ModularAvatarMenuInstaller>>();
-            var ri = new List<ModularAvatarMenuInstaller>();
-
-            if (_avatar != null){
-                foreach (var installer in _avatar.GetComponentsInChildren<ModularAvatarMenuInstaller>(true)){
-                    if (installer.menuToAppend != null){
-                        if (!m2i.ContainsKey(installer.menuToAppend)) m2i[installer.menuToAppend] = new List<ModularAvatarMenuInstaller>();
-                        m2i[installer.menuToAppend].Add(installer);
-                    }
-                    else if (installer.GetComponent<ModularAvatarMenuItem>() == null && installer.GetComponent<ModularAvatarMenuGroup>() == null){
-                        ri.Add(installer);
-                    }
-                }
-            }
+            GetInstallersMaps(out var m2i, out var ri);
 
             if (target.SourceInstaller != null){
                 AddInstallerEntries(freshNode, target.SourceInstaller, visited, m2i, ri);

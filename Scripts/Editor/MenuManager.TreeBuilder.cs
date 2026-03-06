@@ -24,42 +24,7 @@ namespace Lyra.Editor{
             }
 
             try{
-                var installers = _avatar.GetComponentsInChildren<ModularAvatarMenuInstaller>(true);
-
-                var targetedInstallers = new HashSet<ModularAvatarMenuInstaller>();
-                var installTargetType = AppDomain.CurrentDomain.GetAssemblies()
-                    .SelectMany(a => { try { return a.GetTypes(); } catch { return Type.EmptyTypes; } })
-                    .FirstOrDefault(t => t.FullName == "nadena.dev.modular_avatar.core.ModularAvatarMenuInstallTarget");
-
-                if (installTargetType != null){
-                    var installTargetComponents = _avatar.GetComponentsInChildren(installTargetType, true);
-                    var installerField = installTargetType.GetField("installer",
-                        BindingFlags.Public | BindingFlags.Instance);
-                    if (installerField != null){
-                        foreach (var t in installTargetComponents){
-                            var inst = installerField.GetValue(t) as ModularAvatarMenuInstaller;
-                            if (inst != null)
-                                targetedInstallers.Add(inst);
-                        }
-                    }
-                }
-
-                var menuToInstallers = new Dictionary<VRCExpressionsMenu, List<ModularAvatarMenuInstaller>>();
-                var rootInstallers = new List<ModularAvatarMenuInstaller>();
-
-                foreach (var inst in installers){
-                    if (!inst.enabled) continue;
-                    if (targetedInstallers.Contains(inst)) continue;
-
-                    if (inst.installTargetMenu != null){
-                        if (!menuToInstallers.ContainsKey(inst.installTargetMenu))
-                            menuToInstallers[inst.installTargetMenu] = new List<ModularAvatarMenuInstaller>();
-                        menuToInstallers[inst.installTargetMenu].Add(inst);
-                    }
-                    else{
-                        rootInstallers.Add(inst);
-                    }
-                }
+                GetInstallersMaps(out var menuToInstallers, out var rootInstallers);
 
                 var visited = new HashSet<VRCExpressionsMenu>();
                 _rootNode = BuildMenuNode(
@@ -124,7 +89,10 @@ namespace Lyra.Editor{
 
             _inventory.Clear();
             var pool = new List<MenuEntry>();
-            ExtractMappedEntries(_rootNode, layoutItems, pool);
+            var consumed = new HashSet<MenuLayoutData.ItemLayout>();
+
+            ExtractMappedEntries(_rootNode, layoutItems, pool, consumed, MatchMode.Strict);
+            ExtractMappedEntries(_rootNode, layoutItems, pool, consumed, MatchMode.Relaxed);
 
             var newEntries = new List<MenuEntry>();
             CollectRemainingEntries(_rootNode, pool, newEntries);
@@ -218,6 +186,47 @@ namespace Lyra.Editor{
             }
         }
 
+        private void GetInstallersMaps(out Dictionary<VRCExpressionsMenu, List<ModularAvatarMenuInstaller>> menuToInstallers, out List<ModularAvatarMenuInstaller> rootInstallers){
+            menuToInstallers = new Dictionary<VRCExpressionsMenu, List<ModularAvatarMenuInstaller>>();
+            rootInstallers = new List<ModularAvatarMenuInstaller>();
+
+            if (_avatar == null) return;
+
+            var installers = _avatar.GetComponentsInChildren<ModularAvatarMenuInstaller>(true);
+
+            var targetedInstallers = new HashSet<ModularAvatarMenuInstaller>();
+            var installTargetType = AppDomain.CurrentDomain.GetAssemblies()
+                .SelectMany(a => { try { return a.GetTypes(); } catch { return Type.EmptyTypes; } })
+                .FirstOrDefault(t => t.FullName == "nadena.dev.modular_avatar.core.ModularAvatarMenuInstallTarget");
+
+            if (installTargetType != null){
+                var installTargetComponents = _avatar.GetComponentsInChildren(installTargetType, true);
+                var installerField = installTargetType.GetField("installer",
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (installerField != null){
+                    foreach (var t in installTargetComponents){
+                        var inst = installerField.GetValue(t) as ModularAvatarMenuInstaller;
+                        if (inst != null)
+                            targetedInstallers.Add(inst);
+                    }
+                }
+            }
+
+            foreach (var inst in installers){
+                if (!inst.enabled) continue;
+                if (targetedInstallers.Contains(inst)) continue;
+
+                if (inst.installTargetMenu != null){
+                    if (!menuToInstallers.ContainsKey(inst.installTargetMenu))
+                        menuToInstallers[inst.installTargetMenu] = new List<ModularAvatarMenuInstaller>();
+                    menuToInstallers[inst.installTargetMenu].Add(inst);
+                }
+                else{
+                    rootInstallers.Add(inst);
+                }
+            }
+        }
+
         private bool IsEditorOnly(GameObject go){
             if (go == null) return false;
             Transform t = go.transform;
@@ -248,22 +257,13 @@ namespace Lyra.Editor{
                 for (int i = node.Entries.Count - 1; i >= 0; i--){
                     var e = node.Entries[i];
                     node.Entries.RemoveAt(i);
+                    MarkNewEntryRecursive(e);
                     collected.Insert(0, e);
                 }
             }
-
-            if (pool != null){
-                foreach (var p in pool){
-                    if (p.Type == VRCExpressionsMenu.Control.ControlType.SubMenu && p.SubMenu != null && p.SubMenu.Entries != null && !p.IsDynamic){
-                        for (int i = p.SubMenu.Entries.Count - 1; i >= 0; i--){
-                            var e = p.SubMenu.Entries[i];
-                            p.SubMenu.Entries.RemoveAt(i);
-                            collected.Insert(0, e);
-                        }
-                    }
-                }
-            }
         }
+
+        private enum MatchMode { Strict, Relaxed }
 
         private void MarkNewEntryRecursive(MenuEntry entry){
             if (entry == null) return;
@@ -275,26 +275,31 @@ namespace Lyra.Editor{
             }
         }
 
-        private void ExtractMappedEntries(MenuNode node, List<MenuLayoutData.ItemLayout> layoutItems, List<MenuEntry> pool){
+        private void ExtractMappedEntries(MenuNode node, List<MenuLayoutData.ItemLayout> layoutItems, List<MenuEntry> pool, HashSet<MenuLayoutData.ItemLayout> consumed, MatchMode mode){
             if (node == null || node.Entries == null) return;
 
             for (int i = node.Entries.Count - 1; i >= 0; i--){
                 var e = node.Entries[i];
 
-                var match = layoutItems.FirstOrDefault(item => MatchEntry(e, item));
+                var match = layoutItems.FirstOrDefault(item => !consumed.Contains(item) && 
+                    (mode == MatchMode.Strict ? MatchEntryStrict(e, item) : MatchEntryRelaxed(e, item)));
 
                 if (match != null){
+                    consumed.Add(match);
                     node.Entries.RemoveAt(i);
                     e.IsDynamic = match.IsDynamic;
                     pool.Add(e);
 
-                    if (match.IsSubMenu && match.IsDynamic){
-                        continue;
+                    if (!(match.IsSubMenu && match.IsDynamic)){
+                        if (e.Type == VRCExpressionsMenu.Control.ControlType.SubMenu && e.SubMenu != null){
+                            ExtractMappedEntries(e.SubMenu, layoutItems, pool, consumed, mode);
+                        }
                     }
                 }
-
-                if (e.Type == VRCExpressionsMenu.Control.ControlType.SubMenu && e.SubMenu != null){
-                    ExtractMappedEntries(e.SubMenu, layoutItems, pool);
+                else{
+                    if (e.Type == VRCExpressionsMenu.Control.ControlType.SubMenu && e.SubMenu != null){
+                        ExtractMappedEntries(e.SubMenu, layoutItems, pool, consumed, mode);
+                    }
                 }
             }
         }
@@ -373,32 +378,58 @@ namespace Lyra.Editor{
             currentNode.Entries = newEntries;
         }
 
-        private bool MatchEntry(MenuEntry e, MenuLayoutData.ItemLayout itemLayout){
-            if (!string.IsNullOrEmpty(itemLayout.SourceObjId) && GetSourceObjId(e) == itemLayout.SourceObjId) return true;
+        private bool MatchEntryStrict(MenuEntry e, MenuLayoutData.ItemLayout itemLayout){
+            string entryID = GetSourceObjId(e);
+            string layoutID = itemLayout.SourceObjId ?? "";
 
-            if (!string.IsNullOrEmpty(e.PersistentId) && e.PersistentId == itemLayout.Key) return true;
+            if (!string.IsNullOrEmpty(layoutID)){
+                if (entryID == layoutID) return true;
+                if (e.SourceMenuItem != null && UnityEditor.GlobalObjectId.GetGlobalObjectIdSlow(e.SourceMenuItem.gameObject).ToString() == layoutID) return true;
+                if (e.SourceInstaller != null && UnityEditor.GlobalObjectId.GetGlobalObjectIdSlow(e.SourceInstaller.gameObject).ToString() == layoutID) return true;
+            }
 
+            if (!string.IsNullOrEmpty(itemLayout.Key) && !string.IsNullOrEmpty(e.PersistentId)){
+                if (e.PersistentId == itemLayout.Key) return true;
+            }
+
+            return false;
+        }
+
+        private bool MatchEntryRelaxed(MenuEntry e, MenuLayoutData.ItemLayout itemLayout){
             string typeKey = !string.IsNullOrEmpty(itemLayout.Type) ? itemLayout.Type : itemLayout.Key;
             if (GenerateTypeKey(e) == typeKey) return true;
-
-            string[] parts = typeKey.Split(new[] { ':' }, 4);
-            string typeStr = parts.Length > 0 ? parts[0] : "";
-            string nameStr = parts.Length > 1 ? parts[1] : itemLayout.DisplayName;
-
-            if (e.Type.ToString() == typeStr && e.Name == nameStr) return true;
-            if (e.Name == nameStr) return true;
+{
+                string[] parts = typeKey.Split(new[] { ':' }, 5);
+                string typeStr = parts.Length > 0 ? parts[0] : "";
+                string nameStr = parts.Length > 1 ? parts[1] : itemLayout.DisplayName;
+                if (e.Type.ToString() == typeStr && e.Name == nameStr) return true;
+            }
 
             return false;
         }
 
         private MenuEntry FetchEntryFromPool(List<MenuEntry> pool, MenuLayoutData.ItemLayout itemLayout){
+            string layoutID = itemLayout.SourceObjId ?? "";
             int idx = -1;
 
-            if (!string.IsNullOrEmpty(itemLayout.SourceObjId)){
-                idx = pool.FindIndex(e => GetSourceObjId(e) == itemLayout.SourceObjId);
+            if (!string.IsNullOrEmpty(layoutID)){
+                idx = pool.FindIndex(e => {
+                    string entryID = GetSourceObjId(e);
+                    if (entryID == layoutID) return true;
+                    if (e.SourceMenuItem != null && UnityEditor.GlobalObjectId.GetGlobalObjectIdSlow(e.SourceMenuItem.gameObject).ToString() == layoutID) return true;
+                    if (e.SourceInstaller != null && UnityEditor.GlobalObjectId.GetGlobalObjectIdSlow(e.SourceInstaller.gameObject).ToString() == layoutID) return true;
+                    return false;
+                });
+                
+                if (idx >= 0) {
+                    var e = pool[idx];
+                    pool.RemoveAt(idx);
+                    e.PersistentId = itemLayout.Key;
+                    return e;
+                }
             }
 
-            if (idx < 0) {
+            if (idx < 0 && !string.IsNullOrEmpty(itemLayout.Key)) {
                 idx = pool.FindIndex(e => !string.IsNullOrEmpty(e.PersistentId) && e.PersistentId == itemLayout.Key);
             }
 
@@ -409,11 +440,10 @@ namespace Lyra.Editor{
 
             if (idx < 0) {
                 string typeKey = !string.IsNullOrEmpty(itemLayout.Type) ? itemLayout.Type : itemLayout.Key;
-                string[] parts = typeKey.Split(new[] { ':' }, 4);
+                string[] parts = typeKey.Split(new[] { ':' }, 5);
                 string typeStr = parts.Length > 0 ? parts[0] : "";
                 string nameStr = parts.Length > 1 ? parts[1] : itemLayout.DisplayName;
                 idx = pool.FindIndex(e => e.Type.ToString() == typeStr && e.Name == nameStr);
-                if (idx < 0) idx = pool.FindIndex(e => e.Name == nameStr);
             }
 
             if (idx >= 0){

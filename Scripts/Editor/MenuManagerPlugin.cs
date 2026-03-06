@@ -86,7 +86,7 @@ namespace Lyra{
                     AssignControlKeys(descriptor.expressionsMenu, keysCache, objIdCache, avatarRoot, new Dictionary<string, int>(), new HashSet<VRCExpressionsMenu>());
 
                     if (debugLog) Debug.Log("[MenuManagerPlugin] Starting ReorderMenu...");
-                    ReorderMenu(descriptor.expressionsMenu, layoutData, "", visited, keysCache, objIdCache, debugLog, detailedLog, autoAddNewItemsToRoot);
+                    ReorderMenu(descriptor.expressionsMenu, layoutData, "", visited, keysCache, objIdCache, debugLog, detailedLog, autoAddNewItemsToRoot, ctx.AssetContainer);
 
                     UnityEngine.Object.DestroyImmediate(layoutData);
 
@@ -125,7 +125,6 @@ namespace Lyra{
             public string Key0;
             public string Key1;
             public string Key2;
-            public string Key3;
         }
 
         private class PoolItem{
@@ -133,7 +132,6 @@ namespace Lyra{
             public string Key0;
             public string Key1;
             public string Key2;
-            public string Key3;
         }
 
         private static void ReorderMenu(
@@ -145,16 +143,21 @@ namespace Lyra{
             Dictionary<VRCExpressionsMenu.Control, string> objIdCache,
             bool debugLog,
             bool detailedLog,
-            bool autoAddNewItemsToRoot
+            bool autoAddNewItemsToRoot,
+            UnityEngine.Object assetContainer
         ){
             if (rootMenu == null || layout == null || layout.Items.Count == 0) return;
 
             var parsedItems = new List<ParsedLayoutItem>(layout.Items.Count);
             foreach (var item in layout.Items){
                 string mk = !string.IsNullOrEmpty(item.Type) ? item.Type : item.Key;
-                string[] parts = mk.Split(new[] { ':' }, 4);
+                string[] parts = mk.Split(new[] { ':' }, 5);
                 string typeStr = parts.Length > 0 ? parts[0] : "";
                 string nameStr = parts.Length > 1 ? parts[1] : item.DisplayName;
+                
+                string paramStr = parts.Length > 2 ? parts[2] : "";
+                string valStr = parts.Length > 3 ? parts[3] : "1.00";
+                string counterStr = parts.Length > 4 ? parts[4] : "0";
 
                 if (!string.IsNullOrEmpty(item.SourceObjId)){
                     try{
@@ -166,6 +169,9 @@ namespace Lyra{
                                 if (menuItem != null && menuItem.Control != null && !string.IsNullOrEmpty(menuItem.Control.name)){
                                     nameStr = menuItem.Control.name;
                                     typeStr = menuItem.Control.type.ToString();
+                                    paramStr = menuItem.Control.parameter?.name ?? "";
+                                    valStr = menuItem.Control.value.ToString("F2");
+                                    mk = $"{typeStr}:{nameStr}:{paramStr}:{valStr}:{counterStr}";
                                 }
                                 else {
                                     var installer = go.GetComponent<ModularAvatarMenuInstaller>();
@@ -175,12 +181,30 @@ namespace Lyra{
                                     }
                                 }
                             }
+                            else if (obj is ModularAvatarMenuItem menuItem){
+                                if (menuItem.Control != null && !string.IsNullOrEmpty(menuItem.Control.name)){
+                                    nameStr = menuItem.Control.name;
+                                    typeStr = menuItem.Control.type.ToString();
+                                    paramStr = menuItem.Control.parameter?.name ?? "";
+                                    valStr = menuItem.Control.value.ToString("F2");
+                                    mk = $"{typeStr}:{nameStr}:{paramStr}:{valStr}:{counterStr}";
+                                }
+                            }
+                            else if (obj is ModularAvatarMenuInstaller installer){
+                                if (installer.menuToAppend != null){
+                                    nameStr = installer.menuToAppend.name;
+                                    typeStr = VRCExpressionsMenu.Control.ControlType.SubMenu.ToString();
+                                }
+                            }
                             else if (obj is VRCExpressionsMenu menuAsst){
                                 if (idParts.Length > 1 && int.TryParse(idParts[1], out int idx)){
                                     if (idx >= 0 && idx < menuAsst.controls.Count){
                                         var c = menuAsst.controls[idx];
                                         nameStr = c.name;
                                         typeStr = c.type.ToString();
+                                        paramStr = c.parameter?.name ?? "";
+                                        valStr = c.value.ToString("F2");
+                                        mk = $"{typeStr}:{nameStr}:{paramStr}:{valStr}:{counterStr}";
                                     }
                                 }
                             }
@@ -195,14 +219,8 @@ namespace Lyra{
                     Original = item,
                     Key0 = item.SourceObjId ?? "",
                     Key1 = mk,
-                    Key2 = $"{typeStr}:{nameStr}",
-                    Key3 = nameStr
+                    Key2 = $"{typeStr}:{nameStr}"
                 });
-            }
-
-            if (!autoAddNewItemsToRoot){
-                if (debugLog) Debug.Log("[MenuManagerPlugin] AutoAddNewItemsToRoot is OFF; mapping unregistered controls to virtual inventory.");
-                InjectInventoryMappingsForUnregisteredControls(rootMenu, parsedItems, keysCache, objIdCache, detailedLog);
             }
 
             if (debugLog) Debug.Log("[MenuManagerPlugin] Flattening More menus...");
@@ -213,7 +231,7 @@ namespace Lyra{
             ExtractMappedControls(rootMenu, parsedItems, visited, pool, keysCache, objIdCache, detailedLog);
             
             if (debugLog) Debug.Log("[MenuManagerPlugin] Rebuilding menu levels...");
-            RebuildMenuLevel(rootMenu, "", "", layout, pool, parsedItems, detailedLog);
+            RebuildMenuLevel(rootMenu, "", "", layout, pool, parsedItems, detailedLog, assetContainer);
             
             if (pool.Count > 0){
                 foreach (var leftover in pool){
@@ -229,138 +247,63 @@ namespace Lyra{
                     }
                 }
             }
+
+            ApplyDynamicOverflowRecursive(rootMenu, new HashSet<VRCExpressionsMenu>(), assetContainer);
         }
 
-        private static void InjectInventoryMappingsForUnregisteredControls(
-            VRCExpressionsMenu rootMenu,
-            List<ParsedLayoutItem> parsedItems,
-            Dictionary<VRCExpressionsMenu.Control, string> keysCache,
-            Dictionary<VRCExpressionsMenu.Control, string> objIdCache,
-            bool detailedLog
-        ){
-            if (rootMenu == null || rootMenu.controls == null) return;
-
-            var visited = new HashSet<VRCExpressionsMenu>();
-            InjectInventoryMappingsRecursive(rootMenu, parsedItems, keysCache, objIdCache, visited, detailedLog);
-        }
-
-        private static void InjectInventoryMappingsRecursive(
-            VRCExpressionsMenu menu,
-            List<ParsedLayoutItem> parsedItems,
-            Dictionary<VRCExpressionsMenu.Control, string> keysCache,
-            Dictionary<VRCExpressionsMenu.Control, string> objIdCache,
-            HashSet<VRCExpressionsMenu> visited,
-            bool detailedLog,
-            bool parentIsManaged = false
-        ){
+        private static void ApplyDynamicOverflowRecursive(VRCExpressionsMenu menu, HashSet<VRCExpressionsMenu> visited, UnityEngine.Object assetContainer) {
             if (menu == null || menu.controls == null || !visited.Add(menu)) return;
-
+            
+            ApplyDynamicOverflow(menu, assetContainer);
+            
             for (int i = 0; i < menu.controls.Count; i++){
                 var ctrl = menu.controls[i];
-                string key0 = objIdCache.TryGetValue(ctrl, out var oid) ? oid : "";
-                string key1 = keysCache.TryGetValue(ctrl, out var k) ? k : GenerateControlKey(ctrl);
-                string key2 = $"{ctrl.type}:{ctrl.name}";
-                string key3 = ctrl.name;
-
-                ParsedLayoutItem match = FindParsedMatchByKeys(parsedItems, key0, key1, key2, key3);
-
-                if (match != null){
-                    if (match.Original.IsSubMenu && match.Original.IsDynamic){
-                        if (detailedLog) Debug.Log($"[MenuManagerPlugin] Skipping inventory crawl for children of dynamic folder: {ctrl.name}");
-                        continue;
-                    }
-                    
-                    if (ctrl.type == VRCExpressionsMenu.Control.ControlType.SubMenu && ctrl.subMenu != null){
-                        InjectInventoryMappingsRecursive(ctrl.subMenu, parsedItems, keysCache, objIdCache, visited, detailedLog, true);
-                    }
-                    continue;
-                }
-
                 if (ctrl.type == VRCExpressionsMenu.Control.ControlType.SubMenu && ctrl.subMenu != null){
-                    InjectInventoryMappingsRecursive(ctrl.subMenu, parsedItems, keysCache, objIdCache, visited, detailedLog, parentIsManaged);
+                    ApplyDynamicOverflowRecursive(ctrl.subMenu, visited, assetContainer);
                 }
+            }
+        }
 
-                if (parentIsManaged){
-                    if (detailedLog) Debug.Log($"[MenuManagerPlugin] Preserving unregistered control in managed folder: {ctrl.name}");
-                    continue;
+        private static Texture2D _overflowIconCache = null;
+
+        private static Texture2D GetOverflowIcon() {
+            if (_overflowIconCache != null) return _overflowIconCache;
+            string iconName = "overflow.png";
+            string assetName = System.IO.Path.GetFileNameWithoutExtension(iconName);
+            var guids = UnityEditor.AssetDatabase.FindAssets($"{assetName} t:Texture2D");
+            foreach (var g in guids){
+                string p = UnityEditor.AssetDatabase.GUIDToAssetPath(g);
+                if (p.EndsWith(iconName, System.StringComparison.OrdinalIgnoreCase)){
+                    _overflowIconCache = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(p);
+                    if (p.Contains("Lyra")) break;
                 }
+            }
+            return _overflowIconCache;
+        }
 
-                var dummy = new MenuLayoutData.ItemLayout{
-                    Type = key1,
-                    Key = Guid.NewGuid().ToString("N"),
-                    ParentPath = "__INVENTORY__",
-                    Order = 0,
-                    IsSubMenu = ctrl.type == VRCExpressionsMenu.Control.ControlType.SubMenu,
-                    DisplayName = ctrl.name,
-                    CustomIcon = ctrl.icon,
-                    IsAutoOverflow = false,
-                    SourceObjId = key0
+        private static void ApplyDynamicOverflow(VRCExpressionsMenu menu, UnityEngine.Object assetContainer) {
+            int max = 8;
+            Texture2D overflowIcon = GetOverflowIcon();
+
+            while (menu.controls != null && menu.controls.Count > max) {
+                var overflow = menu.controls.GetRange(max - 1, menu.controls.Count - (max - 1));
+                menu.controls.RemoveRange(max - 1, menu.controls.Count - (max - 1));
+
+                var moreMenu = ScriptableObject.CreateInstance<VRCExpressionsMenu>();
+                moreMenu.name = "More";
+                if (assetContainer != null) UnityEditor.AssetDatabase.AddObjectToAsset(moreMenu, assetContainer);
+                moreMenu.controls = new List<VRCExpressionsMenu.Control>();
+                moreMenu.controls.AddRange(overflow);
+
+                var moreCtrl = new VRCExpressionsMenu.Control {
+                    name = "More",
+                    type = VRCExpressionsMenu.Control.ControlType.SubMenu,
+                    subMenu = moreMenu,
+                    icon = overflowIcon
                 };
+                menu.controls.Add(moreCtrl);
 
-                parsedItems.Add(new ParsedLayoutItem{
-                    Original = dummy,
-                    Key0 = key0,
-                    Key1 = key1,
-                    Key2 = key2,
-                    Key3 = key3
-                });
-
-                if (detailedLog) Debug.Log($"[MenuManagerPlugin] Treating unregistered control as inventory-only: {ctrl.name}");
-            }
-        }
-
-        private static void MoveUnmappedControlsToRoot(
-            VRCExpressionsMenu rootMenu,
-            List<ParsedLayoutItem> parsedItems,
-            Dictionary<VRCExpressionsMenu.Control, string> keysCache,
-            bool detailedLog
-        ){
-            if (rootMenu == null || rootMenu.controls == null) return;
-
-            var visited = new HashSet<VRCExpressionsMenu>();
-            var unmapped = new List<VRCExpressionsMenu.Control>();
-
-            CollectUnmappedControls(rootMenu, parsedItems, keysCache, visited, unmapped, detailedLog, true);
-
-            if (unmapped.Count > 0){
-                if (detailedLog) Debug.Log($"[MenuManagerPlugin] Moving {unmapped.Count} unmapped controls to root.");
-                foreach (var ctrl in unmapped){
-                    rootMenu.controls.Add(ctrl);
-                }
-            }
-        }
-
-        private static void CollectUnmappedControls(
-            VRCExpressionsMenu menu,
-            List<ParsedLayoutItem> parsedItems,
-            Dictionary<VRCExpressionsMenu.Control, string> keysCache,
-            HashSet<VRCExpressionsMenu> visited,
-            List<VRCExpressionsMenu.Control> unmapped,
-            bool detailedLog,
-            bool isRoot
-        ){
-            if (menu == null || menu.controls == null || !visited.Add(menu)) return;
-
-            for (int i = menu.controls.Count - 1; i >= 0; i--){
-                var ctrl = menu.controls[i];
-
-                if (ctrl.type == VRCExpressionsMenu.Control.ControlType.SubMenu && ctrl.subMenu != null){
-                    CollectUnmappedControls(ctrl.subMenu, parsedItems, keysCache, visited, unmapped, detailedLog, false);
-                }
-
-                if (isRoot) continue;
-
-                string key1 = keysCache.TryGetValue(ctrl, out var k) ? k : GenerateControlKey(ctrl);
-                string key2 = $"{ctrl.type}:{ctrl.name}";
-                string key3 = ctrl.name;
-
-                ParsedLayoutItem match = FindParsedMatchByKeys(parsedItems, "", key1, key2, key3);
-
-                if (match == null){
-                    if (detailedLog) Debug.Log($"[MenuManagerPlugin] Detected new unmapped control '{ctrl.name}' in submenu '{menu.name}', moving to root.");
-                    menu.controls.RemoveAt(i);
-                    unmapped.Add(ctrl);
-                }
+                menu = moreMenu;
             }
         }
 
@@ -373,14 +316,13 @@ namespace Lyra{
                 string key0 = objIdCache.TryGetValue(ctrl, out var oid) ? oid : "";
                 string key1 = keysCache.TryGetValue(ctrl, out var k) ? k : GenerateControlKey(ctrl);
                 string key2 = $"{ctrl.type}:{ctrl.name}";
-                string key3 = ctrl.name;
 
-                ParsedLayoutItem match = FindParsedMatchByKeys(parsedItems, key0, key1, key2, key3);
+                ParsedLayoutItem match = FindParsedMatchByKeys(parsedItems, key0, key1, key2);
 
                 if (match != null){
                     if (detailedLog) Debug.Log($"[MenuManagerPlugin] Extracted to pool: {ctrl.name} (Matched Key: {match.Original.Key}, SourceObjId: {(key0.Length > 0 ? "YES" : "fallback")})");
                     menu.controls.RemoveAt(i);
-                    pool.Add(new PoolItem { Ctrl = ctrl, Key0 = key0, Key1 = key1, Key2 = key2, Key3 = key3 });
+                    pool.Add(new PoolItem { Ctrl = ctrl, Key0 = key0, Key1 = key1, Key2 = key2 });
 
                     if (match.Original.IsSubMenu && match.Original.IsDynamic){
                         if (detailedLog) Debug.Log($"[MenuManagerPlugin] Skipping extraction for children of dynamic folder: {ctrl.name}");
@@ -403,9 +345,8 @@ namespace Lyra{
                     string key0 = objIdCache.TryGetValue(ctrl, out var oid) ? oid : "";
                     string key1 = keysCache.TryGetValue(ctrl, out var k) ? k : GenerateControlKey(ctrl);
                     string key2 = $"{ctrl.type}:{ctrl.name}";
-                    string key3 = ctrl.name;
 
-                    ParsedLayoutItem match = FindParsedMatchByKeys(parsedItems, key0, key1, key2, key3);
+                    ParsedLayoutItem match = FindParsedMatchByKeys(parsedItems, key0, key1, key2);
 
                     if (match != null && match.Original.IsDynamic){
                         if (detailedLog) Debug.Log($"[MenuManagerPlugin] Skipping FlattenMoreMenus for children of dynamic folder: {ctrl.name}");
@@ -428,7 +369,7 @@ namespace Lyra{
             }
         }
 
-        private static void RebuildMenuLevel(VRCExpressionsMenu currentMenu, string currentPath, string legacyPath, MenuLayoutData layout, List<PoolItem> pool, List<ParsedLayoutItem> parsedItems, bool detailedLog){
+        private static void RebuildMenuLevel(VRCExpressionsMenu currentMenu, string currentPath, string legacyPath, MenuLayoutData layout, List<PoolItem> pool, List<ParsedLayoutItem> parsedItems, bool detailedLog, UnityEngine.Object assetContainer){
             var itemsInPath = layout.Items
                 .Where(item => item.ParentPath == currentPath || (!string.IsNullOrEmpty(legacyPath) && item.ParentPath == legacyPath))
                 .OrderBy(item => item.Order)
@@ -449,6 +390,7 @@ namespace Lyra{
                             if (detailedLog) Debug.Log($"[MenuManagerPlugin] SubMenu reference missing for {ctrl.name}, creating new instance.");
                             ctrl.subMenu = ScriptableObject.CreateInstance<VRCExpressionsMenu>();
                             ctrl.subMenu.name = item.DisplayName ?? ctrl.name;
+                            if (assetContainer != null) UnityEditor.AssetDatabase.AddObjectToAsset(ctrl.subMenu, assetContainer);
                         }
 
                         if (item.IsDynamic){
@@ -457,7 +399,7 @@ namespace Lyra{
                         else{
                             string subPath = string.IsNullOrEmpty(currentPath) ? item.Key : currentPath + "/" + item.Key;
                             string legPath = string.IsNullOrEmpty(legacyPath) ? (item.DisplayName ?? ctrl.name) : legacyPath + "/" + (item.DisplayName ?? ctrl.name);
-                            RebuildMenuLevel(ctrl.subMenu, subPath, legPath, layout, pool, parsedItems, detailedLog);
+                            RebuildMenuLevel(ctrl.subMenu, subPath, legPath, layout, pool, parsedItems, detailedLog, assetContainer);
                         }
                     }
                     
@@ -483,6 +425,7 @@ namespace Lyra{
                         if (detailedLog) Debug.Log($"[MenuManagerPlugin] Creating {(isCustom ? "custom folder" : "overflow folder")}: {item.DisplayName} at path: '{currentPath}'");
                         var virtualSub = ScriptableObject.CreateInstance<VRCExpressionsMenu>();
                         virtualSub.name = item.DisplayName;
+                        if (assetContainer != null) UnityEditor.AssetDatabase.AddObjectToAsset(virtualSub, assetContainer);
                         var virtualCtrl = new VRCExpressionsMenu.Control{
                             name = item.DisplayName,
                             type = VRCExpressionsMenu.Control.ControlType.SubMenu,
@@ -491,7 +434,7 @@ namespace Lyra{
                         };
                         string subPath = string.IsNullOrEmpty(currentPath) ? item.Key : currentPath + "/" + item.Key;
                         string legPath = string.IsNullOrEmpty(legacyPath) ? item.DisplayName : legacyPath + "/" + item.DisplayName;
-                        RebuildMenuLevel(virtualSub, subPath, legPath, layout, pool, parsedItems, detailedLog);
+                        RebuildMenuLevel(virtualSub, subPath, legPath, layout, pool, parsedItems, detailedLog, assetContainer);
                         newControls.Add(virtualCtrl);
                     }
                     else{
@@ -526,8 +469,6 @@ namespace Lyra{
             if (idx < 0) for (int i = 0; i < pool.Count; i++) if (pool[i].Key1 == parsed.Key1) { idx = i; break; }
 
             if (idx < 0) for (int i = 0; i < pool.Count; i++) if (pool[i].Key2 == parsed.Key2) { idx = i; break; }
-
-            if (idx < 0) for (int i = 0; i < pool.Count; i++) if (pool[i].Key3 == parsed.Key3) { idx = i; break; }
 
             if (idx >= 0){
                 var ctrl = pool[idx];
@@ -565,18 +506,10 @@ namespace Lyra{
                     if (parsedItems[j].Original.ParentPath.StartsWith("__INVENTORY__")) anyInventoryMatch = true;
                 }
             }
-            if (result != null) return result;
-
-            for (int j = 0; j < parsedItems.Count; j++){
-                if (parsedItems[j].Key3 == leftover.Key3){
-                    if (result == null) result = parsedItems[j];
-                    if (parsedItems[j].Original.ParentPath.StartsWith("__INVENTORY__")) anyInventoryMatch = true;
-                }
-            }
             return result;
         }
 
-        private static ParsedLayoutItem FindParsedMatchByKeys(List<ParsedLayoutItem> parsedItems, string key0, string key1, string key2, string key3){
+        private static ParsedLayoutItem FindParsedMatchByKeys(List<ParsedLayoutItem> parsedItems, string key0, string key1, string key2){
             if (!string.IsNullOrEmpty(key0)){
                 for (int j = 0; j < parsedItems.Count; j++)
                     if (!string.IsNullOrEmpty(parsedItems[j].Key0) && parsedItems[j].Key0 == key0) return parsedItems[j];
@@ -587,9 +520,6 @@ namespace Lyra{
 
             for (int j = 0; j < parsedItems.Count; j++)
                 if (parsedItems[j].Key2 == key2) return parsedItems[j];
-
-            for (int j = 0; j < parsedItems.Count; j++)
-                if (parsedItems[j].Key3 == key3) return parsedItems[j];
 
             return null;
         }

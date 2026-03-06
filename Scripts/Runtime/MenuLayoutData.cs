@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Lyra{
     [DisallowMultipleComponent]
-    [AddComponentMenu("Lyra/LMM Layout Data")]
+    [AddComponentMenu("Lyra/Menu manager")]
     public class MenuLayoutData : MonoBehaviour, VRC.SDKBase.IEditorOnly{
         [Serializable]
         public class ItemLayout{

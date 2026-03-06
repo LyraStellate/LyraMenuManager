@@ -120,9 +120,9 @@ namespace Lyra.Editor{
         }
 
         private string GetSourceObjId(MenuEntry entry){
-            if (entry.SourceMenuItem != null) return UnityEditor.GlobalObjectId.GetGlobalObjectIdSlow(entry.SourceMenuItem.gameObject).ToString();
-            if (entry.SourceInstaller != null) return UnityEditor.GlobalObjectId.GetGlobalObjectIdSlow(entry.SourceInstaller.gameObject).ToString();
+            if (entry.SourceMenuItem != null) return UnityEditor.GlobalObjectId.GetGlobalObjectIdSlow(entry.SourceMenuItem).ToString();
             if (entry.SourceAsset != null) return UnityEditor.GlobalObjectId.GetGlobalObjectIdSlow(entry.SourceAsset).ToString() + ":__index__:" + entry.SourceIndex;
+            if (entry.SourceInstaller != null) return UnityEditor.GlobalObjectId.GetGlobalObjectIdSlow(entry.SourceInstaller).ToString();
             return "";
         }
 
