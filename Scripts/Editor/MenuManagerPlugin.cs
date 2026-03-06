@@ -227,24 +227,17 @@ namespace Lyra{
             FlattenMoreMenus(rootMenu, new HashSet<VRCExpressionsMenu>(), parsedItems, keysCache, objIdCache, detailedLog);
 
             var pool = new List<PoolItem>();
+            var consumed = new HashSet<ParsedLayoutItem>();
+            
             if (debugLog) Debug.Log("[MenuManagerPlugin] Extracting mapped controls...");
-            ExtractMappedControls(rootMenu, parsedItems, visited, pool, keysCache, objIdCache, detailedLog);
+            ExtractMappedControls(rootMenu, parsedItems, visited, pool, keysCache, objIdCache, consumed, detailedLog);
             
             if (debugLog) Debug.Log("[MenuManagerPlugin] Rebuilding menu levels...");
             RebuildMenuLevel(rootMenu, "", "", layout, pool, parsedItems, detailedLog, assetContainer);
             
             if (pool.Count > 0){
                 foreach (var leftover in pool){
-                    bool anyInventoryMatch = false;
-                    ParsedLayoutItem mappedItem = FindParsedMatch(parsedItems, leftover, out anyInventoryMatch);
-
-                    if (mappedItem == null || (!mappedItem.Original.ParentPath.StartsWith("__INVENTORY__") && !anyInventoryMatch)){
-                        if (detailedLog) Debug.Log($"[MenuManagerPlugin] Restoring unmapped leftover control: {leftover.Ctrl.name}");
-                        rootMenu.controls.Add(leftover.Ctrl);
-                    }
-                    else{
-                        if (detailedLog) Debug.Log($"[MenuManagerPlugin] Skipping leftover control in inventory: {leftover.Ctrl.name}");
-                    }
+                    if (detailedLog) Debug.Log($"[MenuManagerPlugin] Skipping leftover control (acts as inventory): {leftover.Ctrl.name}");
                 }
             }
 
@@ -307,7 +300,7 @@ namespace Lyra{
             }
         }
 
-        private static void ExtractMappedControls(VRCExpressionsMenu menu, List<ParsedLayoutItem> parsedItems, HashSet<VRCExpressionsMenu> visited, List<PoolItem> pool, Dictionary<VRCExpressionsMenu.Control, string> keysCache, Dictionary<VRCExpressionsMenu.Control, string> objIdCache, bool detailedLog){
+        private static void ExtractMappedControls(VRCExpressionsMenu menu, List<ParsedLayoutItem> parsedItems, HashSet<VRCExpressionsMenu> visited, List<PoolItem> pool, Dictionary<VRCExpressionsMenu.Control, string> keysCache, Dictionary<VRCExpressionsMenu.Control, string> objIdCache, HashSet<ParsedLayoutItem> consumed, bool detailedLog){
             if (menu == null || menu.controls == null || !visited.Add(menu)) return;
 
             for (int i = menu.controls.Count - 1; i >= 0; i--){
@@ -317,9 +310,10 @@ namespace Lyra{
                 string key1 = keysCache.TryGetValue(ctrl, out var k) ? k : GenerateControlKey(ctrl);
                 string key2 = $"{ctrl.type}:{ctrl.name}";
 
-                ParsedLayoutItem match = FindParsedMatchByKeys(parsedItems, key0, key1, key2);
+                ParsedLayoutItem match = FindParsedMatchByKeys(parsedItems, key0, key1, key2, consumed);
 
                 if (match != null){
+                    consumed.Add(match);
                     if (detailedLog) Debug.Log($"[MenuManagerPlugin] Extracted to pool: {ctrl.name} (Matched Key: {match.Original.Key}, SourceObjId: {(key0.Length > 0 ? "YES" : "fallback")})");
                     menu.controls.RemoveAt(i);
                     pool.Add(new PoolItem { Ctrl = ctrl, Key0 = key0, Key1 = key1, Key2 = key2 });
@@ -331,7 +325,7 @@ namespace Lyra{
                 }
 
                 if (ctrl.type == VRCExpressionsMenu.Control.ControlType.SubMenu && ctrl.subMenu != null){
-                    ExtractMappedControls(ctrl.subMenu, parsedItems, visited, pool, keysCache, objIdCache, detailedLog);
+                    ExtractMappedControls(ctrl.subMenu, parsedItems, visited, pool, keysCache, objIdCache, consumed, detailedLog);
                 }
             }
         }
@@ -453,7 +447,17 @@ namespace Lyra{
             }
 
             if (currentMenu.controls != null){
-                newControls.AddRange(currentMenu.controls);
+                if (string.IsNullOrEmpty(currentPath)) {
+                    bool autoAddNewItemsToRoot = EditorPrefs.GetBool("Lyra.MenuManager.AutoAddNewItemsToRoot", false);
+                    if (autoAddNewItemsToRoot) {
+                        newControls.AddRange(currentMenu.controls);
+                        if (detailedLog) Debug.Log($"[MenuManagerPlugin] autoAddNewItemsToRoot is ON. Appending {currentMenu.controls.Count} unmapped items to root.");
+                    } else {
+                        if (detailedLog) Debug.Log($"[MenuManagerPlugin] autoAddNewItemsToRoot is OFF. Discarding {currentMenu.controls.Count} unmapped items from root.");
+                    }
+                } else {
+                    newControls.AddRange(currentMenu.controls);
+                }
             }
             currentMenu.controls = newControls;
         }
@@ -509,17 +513,17 @@ namespace Lyra{
             return result;
         }
 
-        private static ParsedLayoutItem FindParsedMatchByKeys(List<ParsedLayoutItem> parsedItems, string key0, string key1, string key2){
+        private static ParsedLayoutItem FindParsedMatchByKeys(List<ParsedLayoutItem> parsedItems, string key0, string key1, string key2, HashSet<ParsedLayoutItem> consumed = null){
             if (!string.IsNullOrEmpty(key0)){
                 for (int j = 0; j < parsedItems.Count; j++)
-                    if (!string.IsNullOrEmpty(parsedItems[j].Key0) && parsedItems[j].Key0 == key0) return parsedItems[j];
+                    if (!string.IsNullOrEmpty(parsedItems[j].Key0) && parsedItems[j].Key0 == key0 && (consumed == null || !consumed.Contains(parsedItems[j]))) return parsedItems[j];
             }
 
             for (int j = 0; j < parsedItems.Count; j++)
-                if (parsedItems[j].Key1 == key1) return parsedItems[j];
+                if (parsedItems[j].Key1 == key1 && (consumed == null || !consumed.Contains(parsedItems[j]))) return parsedItems[j];
 
             for (int j = 0; j < parsedItems.Count; j++)
-                if (parsedItems[j].Key2 == key2) return parsedItems[j];
+                if (parsedItems[j].Key2 == key2 && (consumed == null || !consumed.Contains(parsedItems[j]))) return parsedItems[j];
 
             return null;
         }

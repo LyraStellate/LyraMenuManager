@@ -212,7 +212,7 @@ namespace Lyra.Editor{
         }
 
         private void FixVRCSDKUndoBugImmediate(){
-            var editors = Resources.FindObjectsOfTypeAll<UnityEditor.Editor>();
+            var editors = ActiveEditorTracker.sharedTracker.activeEditors;
             foreach (var ed in editors){
                 if (ed == null) continue;
                 if (ed.GetType().Name == "VRCExpressionsMenuEditor"){
@@ -261,6 +261,7 @@ namespace Lyra.Editor{
 
             if (_rootNode == null || _navStack.Count == 0){
                 DrawDropZone();
+                DrawAvatarList();
             }
             else{
                 EditorGUILayout.BeginHorizontal();

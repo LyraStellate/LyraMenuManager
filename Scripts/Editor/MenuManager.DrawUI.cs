@@ -238,6 +238,63 @@ namespace Lyra.Editor{
             }
         }
 
+        private Vector2 _avatarListScrollPos;
+        
+        private void DrawAvatarList() {
+            var avatars = UnityEngine.Object.FindObjectsOfType<VRCAvatarDescriptor>(true);
+            if (avatars == null || avatars.Length == 0) return;
+
+            var validAvatars = avatars
+                .Where(av => av != null && av.gameObject != null && av.gameObject.scene.IsValid())
+                .OrderByDescending(av => av.gameObject.activeInHierarchy)
+                .ThenBy(av => av.gameObject.name)
+                .ToList();
+
+            if (validAvatars.Count == 0) return;
+
+            EditorGUILayout.Space(10);
+
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Space(20);
+            EditorGUILayout.LabelField("シーン内のアバター", _sHeaderLeft);
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.Space(4);
+
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Space(20);
+
+            _avatarListScrollPos = EditorGUILayout.BeginScrollView(_avatarListScrollPos, GUILayout.Height(400));
+
+            foreach (var av in validAvatars) {
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.Space(4);
+
+                var prevColor = GUI.contentColor;
+                if (!av.gameObject.activeInHierarchy) {
+                    GUI.contentColor = Color.gray;
+                }
+
+                if (GUILayout.Button(av.gameObject.name, GUILayout.Height(22))) {
+                    _avatar = av;
+                    SaveLastAvatarIdentifier();
+                    ClearMenu();
+                    RebuildMenu();
+                }
+
+                GUI.contentColor = prevColor;
+
+                GUILayout.Space(4);
+                EditorGUILayout.EndHorizontal();
+                EditorGUILayout.Space(2);
+            }
+
+            EditorGUILayout.EndScrollView();
+
+            GUILayout.Space(20);
+            EditorGUILayout.EndHorizontal();
+        }
+
         private int _totalCrumbWidth = 0;
         private void DrawBreadcrumbs(){
             _dropCrumbIdx = -1;
