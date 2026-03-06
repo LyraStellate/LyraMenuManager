@@ -67,7 +67,7 @@ jobs:
                   index_json = json.load(f)
           else:
               index_json = {
-                  'name': 'Lyra VPM Repo',
+                  'name': 'LyraStellate',
                   'author': '${{ github.repository_owner }}',
                   'url': 'https://${{ github.repository_owner }}.github.io/vpm-repos/index.json',
                   'packages': {}
