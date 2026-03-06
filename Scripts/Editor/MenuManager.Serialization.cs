@@ -24,10 +24,12 @@ namespace Lyra.Editor{
             string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
             var allItems = new List<MenuLayoutData.ItemLayout>();
 
-            SerializeNode(_rootNode, "", allItems);
+            var flattenedEntries = FlattenMoreMenus(_rootNode.Entries);
+            var rootDummy = new MenuNode { Entries = flattenedEntries };
+            SerializeNode(rootDummy, "", allItems);
 
-            var invDummy = new MenuNode();
-            invDummy.Entries.AddRange(_inventory);
+            var flattenedInventory = FlattenMoreMenus(_inventory);
+            var invDummy = new MenuNode { Entries = flattenedInventory };
             SerializeNode(invDummy, "__INVENTORY__", allItems);
 
             if (layoutData.BaseLayout == null){

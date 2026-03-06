@@ -83,6 +83,10 @@ namespace Lyra.Editor{
                 layoutItems = layoutData.Items;
             }
 
+            if (layoutItems != null) {
+                layoutItems = FlattenLayoutItems(layoutItems);
+            }
+
             Debug.Log($"[MenuManager] レイアウトを復元: {layoutItems.Count} アイテム");
 
             _rootNode.Entries = FlattenMoreMenus(_rootNode.Entries);
@@ -666,6 +670,63 @@ namespace Lyra.Editor{
                     node.Entries.Add(ConvertMAMenuItem(childMi, visited, m2i, ri));
             }
             return node;
+        }
+
+        private List<MenuLayoutData.ItemLayout> FlattenLayoutItems(List<MenuLayoutData.ItemLayout> original){
+            if (original == null) return null;
+            
+            var items = original.Select(it => new MenuLayoutData.ItemLayout {
+                Key = it.Key,
+                Type = it.Type,
+                ParentPath = it.ParentPath,
+                Order = it.Order,
+                IsSubMenu = it.IsSubMenu,
+                DisplayName = it.DisplayName,
+                CustomIcon = it.CustomIcon,
+                IsAutoOverflow = it.IsAutoOverflow,
+                IsDynamic = it.IsDynamic,
+                SourceObjId = it.SourceObjId
+            }).ToList();
+
+            var dict = items.ToDictionary(it => it.Key);
+            var overflowKeys = new HashSet<string>(items.Where(it => it.IsAutoOverflow).Select(it => it.Key));
+            
+            if (overflowKeys.Count == 0) return items;
+
+            var itemOrders = new Dictionary<MenuLayoutData.ItemLayout, List<int>>();
+            foreach (var it in items) {
+                var chain = new List<int> { it.Order };
+                string p = it.ParentPath;
+                while (!string.IsNullOrEmpty(p) && overflowKeys.Contains(p)) {
+                    var parent = dict[p];
+                    chain.Insert(0, parent.Order);
+                    p = parent.ParentPath;
+                }
+                itemOrders[it] = chain;
+                it.ParentPath = p;
+            }
+
+            items.RemoveAll(it => it.IsAutoOverflow);
+
+            foreach (var group in items.GroupBy(it => it.ParentPath)) {
+                var sorted = group.OrderBy(it => it, new HierarchyComparer(itemOrders)).ToList();
+                for (int i = 0; i < sorted.Count; i++) sorted[i].Order = i;
+            }
+
+            return items;
+        }
+
+        private class HierarchyComparer : IComparer<MenuLayoutData.ItemLayout> {
+            private Dictionary<MenuLayoutData.ItemLayout, List<int>> _orders;
+            public HierarchyComparer(Dictionary<MenuLayoutData.ItemLayout, List<int>> orders) { _orders = orders; }
+            public int Compare(MenuLayoutData.ItemLayout x, MenuLayoutData.ItemLayout y) {
+                if (!_orders.TryGetValue(x, out var ox) || !_orders.TryGetValue(y, out var oy)) return 0;
+                int len = Math.Min(ox.Count, oy.Count);
+                for (int i = 0; i < len; i++) {
+                    if (ox[i] != oy[i]) return ox[i].CompareTo(oy[i]);
+                }
+                return ox.Count.CompareTo(oy.Count);
+            }
         }
     }
 }

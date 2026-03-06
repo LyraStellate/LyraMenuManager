@@ -322,7 +322,7 @@ namespace Lyra{
                 string key1 = keysCache.TryGetValue(ctrl, out var k) ? k : GenerateControlKey(ctrl);
                 string key2 = $"{ctrl.type}:{ctrl.name}";
 
-                ParsedLayoutItem match = FindParsedMatchByKeys(parsedItems, key0, key1, key2, consumed);
+                ParsedLayoutItem match = FindParsedMatchByKeys(parsedItems, key0, key1, key2, consumed, ctrl);
 
                 if (match != null){
                     consumed.Add(match);
@@ -352,7 +352,7 @@ namespace Lyra{
                     string key1 = keysCache.TryGetValue(ctrl, out var k) ? k : GenerateControlKey(ctrl);
                     string key2 = $"{ctrl.type}:{ctrl.name}";
 
-                    ParsedLayoutItem match = FindParsedMatchByKeys(parsedItems, key0, key1, key2);
+                    ParsedLayoutItem match = FindParsedMatchByKeys(parsedItems, key0, key1, key2, null, ctrl);
 
                     if (match != null && match.Original.IsDynamic){
                         if (detailedLog) Debug.Log($"[MenuManagerPlugin] Skipping FlattenMoreMenus for children of dynamic folder: {ctrl.name}");
@@ -484,7 +484,49 @@ namespace Lyra{
 
             if (idx < 0) for (int i = 0; i < pool.Count; i++) if (pool[i].Key1 == parsed.Key1) { idx = i; break; }
 
-            if (idx < 0) for (int i = 0; i < pool.Count; i++) if (pool[i].Key2 == parsed.Key2) { idx = i; break; }
+            if (idx < 0) {
+                int lastColon = parsed.Key1.LastIndexOf(':');
+                if (lastColon > 0) {
+                    string baseKey = parsed.Key1.Substring(0, lastColon);
+                    for (int i = 0; i < pool.Count; i++) {
+                        string pKey = pool[i].Key1;
+                        int pLastColon = pKey.LastIndexOf(':');
+                        if (pLastColon > 0 && pKey.Substring(0, pLastColon) == baseKey) { idx = i; break; }
+                    }
+                }
+            }
+
+            if (idx < 0) {
+                string[] lParts = parsed.Key1.Split(':');
+                if (lParts.Length >= 3) {
+                    string lTypeNameParam = $"{lParts[0]}:{lParts[1]}:{lParts[2]}";
+                    for (int i = 0; i < pool.Count; i++) {
+                        string[] pParts = pool[i].Key1.Split(':');
+                        if (pParts.Length >= 3 && $"{pParts[0]}:{pParts[1]}:{pParts[2]}" == lTypeNameParam) { idx = i; break; }
+                    }
+                }
+            }
+
+            if (idx < 0){
+                int bestScore = -1;
+                for (int i = 0; i < pool.Count; i++){
+                    if (pool[i].Key2 == parsed.Key2){
+                        int score = 0;
+                        bool poolHasIcon = pool[i].Ctrl.icon != null;
+                        bool layoutHasIcon = parsed.Original.CustomIcon != null;
+                        if (poolHasIcon == layoutHasIcon) score += 1;
+                        
+                        string[] pParts = pool[i].Key1.Split(':');
+                        string[] lParts = parsed.Key1.Split(':');
+                        if (pParts.Length >= 3 && lParts.Length >= 3 && pParts[2] == lParts[2]) score += 2;
+
+                        if (score > bestScore){
+                            bestScore = score;
+                            idx = i;
+                        }
+                    }
+                }
+            }
 
             if (idx >= 0){
                 var ctrl = pool[idx];
@@ -525,7 +567,7 @@ namespace Lyra{
             return result;
         }
 
-        private static ParsedLayoutItem FindParsedMatchByKeys(List<ParsedLayoutItem> parsedItems, string key0, string key1, string key2, HashSet<ParsedLayoutItem> consumed = null){
+        private static ParsedLayoutItem FindParsedMatchByKeys(List<ParsedLayoutItem> parsedItems, string key0, string key1, string key2, HashSet<ParsedLayoutItem> consumed = null, VRCExpressionsMenu.Control sourceCtrl = null){
             if (!string.IsNullOrEmpty(key0)){
                 for (int j = 0; j < parsedItems.Count; j++)
                     if (!string.IsNullOrEmpty(parsedItems[j].Key0) && parsedItems[j].Key0 == key0 && (consumed == null || !consumed.Contains(parsedItems[j]))) return parsedItems[j];
@@ -544,10 +586,37 @@ namespace Lyra{
                 }
             }
 
-            for (int j = 0; j < parsedItems.Count; j++)
-                if (parsedItems[j].Key2 == key2 && (consumed == null || !consumed.Contains(parsedItems[j]))) return parsedItems[j];
+            string[] sParts = key1.Split(':');
+            if (sParts.Length >= 3) {
+                string sTypeNameParam = $"{sParts[0]}:{sParts[1]}:{sParts[2]}";
+                for (int j = 0; j < parsedItems.Count; j++) {
+                    string[] pParts = parsedItems[j].Key1.Split(':');
+                    if (pParts.Length >= 3 && $"{pParts[0]}:{pParts[1]}:{pParts[2]}" == sTypeNameParam && (consumed == null || !consumed.Contains(parsedItems[j]))) return parsedItems[j];
+                }
+            }
 
-            return null;
+            ParsedLayoutItem bestMatch = null;
+            int bestScore = -1;
+            for (int j = 0; j < parsedItems.Count; j++){
+                if (parsedItems[j].Key2 == key2 && (consumed == null || !consumed.Contains(parsedItems[j]))){
+                    if (sourceCtrl == null) return parsedItems[j];
+
+                    int score = 0;
+                    bool ctrlHasIcon = sourceCtrl.icon != null;
+                    bool layoutHasIcon = parsedItems[j].Original.CustomIcon != null;
+                    if (ctrlHasIcon == layoutHasIcon) score += 1;
+
+                    string[] pParts = parsedItems[j].Key1.Split(':');
+                    if (pParts.Length >= 3 && sParts.Length >= 3 && pParts[2] == sParts[2]) score += 2;
+
+                    if (score > bestScore){
+                        bestScore = score;
+                        bestMatch = parsedItems[j];
+                    }
+                }
+            }
+
+            return bestMatch;
         }
 
         public static string GenerateControlKey(VRCExpressionsMenu.Control ctrl){
