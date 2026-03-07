@@ -312,6 +312,13 @@ namespace Lyra{
             }
         }
 
+        private static bool IsVirtualLayoutItem(ParsedLayoutItem item){
+            if (item == null || item.Original == null) return false;
+            if (item.Original.IsAutoOverflow) return true;
+            string tk = !string.IsNullOrEmpty(item.Original.Type) ? item.Original.Type : (item.Original.Key ?? "");
+            return tk.Contains(":__custom__:");
+        }
+
         private static void ExtractMappedControls(VRCExpressionsMenu menu, List<ParsedLayoutItem> parsedItems, HashSet<VRCExpressionsMenu> visited, List<PoolItem> pool, Dictionary<VRCExpressionsMenu.Control, string> keysCache, Dictionary<VRCExpressionsMenu.Control, string> objIdCache, HashSet<ParsedLayoutItem> consumed, bool detailedLog){
             if (menu == null || menu.controls == null || !visited.Add(menu)) return;
 
@@ -323,6 +330,8 @@ namespace Lyra{
                 string key2 = $"{ctrl.type}:{ctrl.name}";
 
                 ParsedLayoutItem match = FindParsedMatchByKeys(parsedItems, key0, key1, key2, consumed, ctrl);
+
+                if (match != null && IsVirtualLayoutItem(match)) match = null;
 
                 if (match != null){
                     consumed.Add(match);
@@ -477,6 +486,8 @@ namespace Lyra{
         private static VRCExpressionsMenu.Control FetchFromPool(List<PoolItem> pool, ParsedLayoutItem parsed){
             if (parsed == null) return null;
 
+            if (IsVirtualLayoutItem(parsed)) return null;
+
             int idx = -1;
 
             if (idx < 0 && !string.IsNullOrEmpty(parsed.Key0))
@@ -599,6 +610,8 @@ namespace Lyra{
             int bestScore = -1;
             for (int j = 0; j < parsedItems.Count; j++){
                 if (parsedItems[j].Key2 == key2 && (consumed == null || !consumed.Contains(parsedItems[j]))){
+                    if (sourceCtrl != null && IsVirtualLayoutItem(parsedItems[j])) continue;
+
                     if (sourceCtrl == null) return parsedItems[j];
 
                     int score = 0;

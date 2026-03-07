@@ -383,6 +383,10 @@ namespace Lyra.Editor{
         }
 
         private bool MatchEntryStrict(MenuEntry e, MenuLayoutData.ItemLayout itemLayout){
+            string tk = !string.IsNullOrEmpty(itemLayout.Type) ? itemLayout.Type : itemLayout.Key;
+            bool layoutIsVirtual = tk.Contains(":__custom__:") || itemLayout.IsAutoOverflow;
+            if (layoutIsVirtual != (e.IsCustomFolder || e.IsAutoOverflow)) return false;
+
             string entryID = GetSourceObjId(e);
             string layoutID = itemLayout.SourceObjId ?? "";
 
@@ -401,6 +405,9 @@ namespace Lyra.Editor{
 
         private bool MatchEntryRelaxed(MenuEntry e, MenuLayoutData.ItemLayout itemLayout){
             string typeKey = !string.IsNullOrEmpty(itemLayout.Type) ? itemLayout.Type : itemLayout.Key;
+            bool layoutIsVirtual = typeKey.Contains(":__custom__:") || itemLayout.IsAutoOverflow;
+            if (layoutIsVirtual != (e.IsCustomFolder || e.IsAutoOverflow)) return false;
+
             if (GenerateTypeKey(e) == typeKey) return true;
 {
                 string[] parts = typeKey.Split(new[] { ':' }, 5);
@@ -413,6 +420,9 @@ namespace Lyra.Editor{
         }
 
         private MenuEntry FetchEntryFromPool(List<MenuEntry> pool, MenuLayoutData.ItemLayout itemLayout){
+            string tk = !string.IsNullOrEmpty(itemLayout.Type) ? itemLayout.Type : itemLayout.Key;
+            if (tk.Contains(":__custom__:") || itemLayout.IsAutoOverflow) return null;
+
             string layoutID = itemLayout.SourceObjId ?? "";
             int idx = -1;
 
