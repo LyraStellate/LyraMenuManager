@@ -78,10 +78,6 @@ jobs:
               index_json.setdefault('packages', {})[pkg_name] = {'versions': {}}
           index_json['packages'][pkg_name]['versions'][pkg_version] = new_pkg
 
-          # バージョン番号が '0.' で始まるものをリストアップして削除
-          versions_to_remove = [v for v in versions.keys() if v.startswith('0.')]
-          for v in versions_to_remove:
-
           with open(index_path, 'w', encoding='utf-8') as f:
               json.dump(index_json, f, indent=2, ensure_ascii=False)
           "
