@@ -806,7 +806,7 @@ namespace Lyra.Editor{
 
             bool isProRestricted = !isFromInventory && MenuManagerAuthGuard.GetDepthStatusText(_navStack.Count - 1) != null;
             if (isProRestricted){
-                EditorGUILayout.HelpBox("️ 第3階層以上の編集は 有料版限定機能です。", MessageType.Warning);
+                EditorGUILayout.HelpBox("️ 第2階層以上の編集は 有料版限定機能です。", MessageType.Warning);
                 if (GUILayout.Button("認証ウィンドウを開く", GUILayout.Height(24))){
                     MenuManagerAuthWindow.ShowWindow();
                 }
