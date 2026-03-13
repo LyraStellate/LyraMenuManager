@@ -12,15 +12,39 @@ namespace Lyra.Editor{
     public partial class MenuManager{
         private void DrawInventoryArea(){
             if (!_showInventory){
-                var narrow = EditorGUILayout.BeginVertical(GUILayout.Width(30));
-                EditorGUI.DrawRect(narrow, CRUMB_BG);
-                DrawBorder(narrow, SEPARATOR, 1f);
+                var narrowRect = EditorGUILayout.BeginVertical(GUILayout.Width(30));
+                EditorGUI.DrawRect(narrowRect, CRUMB_BG);
+                DrawBorder(narrowRect, SEPARATOR, 1f);
 
-                EditorGUILayout.Space(8);
-                if (GUILayout.Button("▶", _sBtnNoPadding, GUILayout.Width(24), GUILayout.Height(100))){
+                GUILayout.FlexibleSpace();
+                
+                var handleRect = GUILayoutUtility.GetRect(30, 100);
+                var isHoverHandle = handleRect.Contains(Event.current.mousePosition);
+                
+                var tabRect = new Rect(handleRect.x + 5, handleRect.y, 22, handleRect.height);
+                
+                Color tabCol = isHoverHandle ? ACCENT * 0.4f : ACCENT * 0.15f;
+                EditorGUI.DrawRect(tabRect, tabCol);
+                
+                EditorGUI.DrawRect(new Rect(tabRect.x, tabRect.y, 2, tabRect.height), isHoverHandle ? Color.white : ACCENT);
+
+                var dotStyle = new GUIStyle(EditorStyles.label) {
+                    alignment = TextAnchor.MiddleCenter,
+                    fontSize = 12,
+                    normal = { textColor = isHoverHandle ? Color.white : TEXT_SEC }
+                };
+                
+                float midX = tabRect.center.x;
+                float midY = tabRect.center.y;
+                GUI.Label(new Rect(midX - 10, midY - 10, 20, 20), "»", dotStyle);
+
+                if (Event.current.type == EventType.MouseDown && isHoverHandle && Event.current.button == 0) {
                     _showInventory = true;
                     EditorPrefs.SetBool("Lyra.MenuManager.ShowInventory", true);
+                    Event.current.Use();
                 }
+
+                GUILayout.FlexibleSpace();
                 EditorGUILayout.EndVertical();
                 return;
             }
@@ -40,9 +64,23 @@ namespace Lyra.Editor{
             EditorGUILayout.Space(4);
             EditorGUILayout.BeginHorizontal();
             EditorGUILayout.LabelField(" インベントリ", _sHeaderLeft);
-            if (GUILayout.Button("◀", _sBtnNoPadding, GUILayout.Width(24), GUILayout.Height(24))){
+            var closeBtnRect = GUILayoutUtility.GetRect(24, 24);
+            bool isHoverClose = closeBtnRect.Contains(Event.current.mousePosition);
+            
+            if (isHoverClose) {
+                EditorGUI.DrawRect(closeBtnRect, Color.white * 0.1f);
+            }
+            var closeIconStyle = new GUIStyle(EditorStyles.label) {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 14,
+                normal = { textColor = isHoverClose ? Color.white : TEXT_SEC }
+            };
+            GUI.Label(closeBtnRect, "«", closeIconStyle);
+
+            if (Event.current.type == EventType.MouseDown && isHoverClose && Event.current.button == 0) {
                 _showInventory = false;
                 EditorPrefs.SetBool("Lyra.MenuManager.ShowInventory", false);
+                Event.current.Use();
             }
             EditorGUILayout.EndHorizontal();
             EditorGUILayout.Space(2);

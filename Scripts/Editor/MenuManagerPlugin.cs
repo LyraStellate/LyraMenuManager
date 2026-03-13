@@ -52,11 +52,11 @@ namespace Lyra{
 
                 foreach (var pluginName in afterPlugins){
                     seq = seq.AfterPlugin(pluginName);
-                    Debug.Log($"[MenuManagerPlugin] AfterPlugin 制約を追加: {pluginName}");
+                    Debug.Log($"[MenuManagerPlugin] AfterPlugin制約を追加: {pluginName}");
                 }
             }
             catch (System.Exception e){
-                Debug.LogWarning($"[MenuManagerPlugin] AfterPlugin 設定の収集に失敗: {e.Message}");
+                Debug.LogWarning($"[MenuManagerPlugin] AfterPlugin設定の収集に失敗: {e.Message}");
             }
 
             seq.Run("Reorder Menus", ctx =>{
@@ -87,8 +87,6 @@ namespace Lyra{
 
                     if (debugLog) Debug.Log("[MenuManagerPlugin] Starting ReorderMenu...");
                     ReorderMenu(descriptor.expressionsMenu, layoutData, "", visited, keysCache, objIdCache, debugLog, detailedLog, autoAddNewItemsToRoot, ctx.AssetContainer);
-
-                    UnityEngine.Object.DestroyImmediate(layoutData);
 
                     if (debugLog) Debug.Log("[MenuManagerPlugin] メニュー並び替え完了。");
                 });

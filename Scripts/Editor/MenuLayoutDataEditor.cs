@@ -76,7 +76,7 @@ namespace Lyra{
                     Application.OpenURL(url1);
                 }
                 
-                string url2 = "https://example.com";
+                string url2 = "https://github.com/LyraStellate/LyraMenuManager";
                 GUIContent content2 = new GUIContent(
                     isJa ? " サポートページ / GitHub" : " Support / GitHub", 
                     EditorGUIUtility.IconContent("BuildSettings.Web.Small").image, 
@@ -85,14 +85,6 @@ namespace Lyra{
                     Application.OpenURL(url2);
                 }
                 
-                string url3 = "https://example.com";
-                GUIContent content3 = new GUIContent(
-                    isJa ? " 開発者を支援する" : " Support the Developer", 
-                    EditorGUIUtility.IconContent("Favorite").image, 
-                    url3);
-                if (GUILayout.Button(content3, linkStyle)){
-                    Application.OpenURL(url3);
-                }
                 
                 EditorGUILayout.Space(4);
                 EditorGUI.indentLevel--;
@@ -132,8 +124,8 @@ namespace Lyra{
 
                 var isEnabledProp = serializedObject.FindProperty("IsEnabled");
                 GUIContent enableLabel = isJa 
-                    ? new GUIContent("有効", "オフにするとビルド時の自動並び替え処理を実行しません")
-                    : new GUIContent("Enable", "If disabled, automatic menu reordering at build time will be skipped");
+                    ? new GUIContent("有効", "オフにするとビルド時に処理を実行しません")
+                    : new GUIContent("Enable", "If disabled, processing will be skipped at build time");
                 var boldToggleStyle = new GUIStyle(EditorStyles.label);
                 isEnabledProp.boolValue = EditorGUILayout.ToggleLeft(enableLabel, isEnabledProp.boolValue, boldToggleStyle);
 
@@ -158,10 +150,9 @@ namespace Lyra{
                 EditorGUI.indentLevel++;
 
                 string advHelp = isJa
-                    ? "NDMF の .after 設定は、Menu Manager Settings ウィンドウで\n" +
-                      "プロジェクト共通設定として管理されるようになりました。"
-                    : ".after ordering is now managed as a project-wide setting\n" +
-                      "from the Menu Manager Settings window.";
+                    ? "他プラグインとの干渉が観測される場合は実行順序問題の可能性が高いため、" +
+                      "Menu Manager Settingsで該当プラグインの.afterを設定してください。"
+                    : "To avoid conflicts with other plugins, please set .after in the Menu Manager Settings.";
                 EditorGUILayout.HelpBox(advHelp, MessageType.Info);
                 EditorGUILayout.Space(4);
 
@@ -188,8 +179,8 @@ namespace Lyra{
                     EditorGUI.indentLevel++;
                     var detailedDebugLogProp = serializedObject.FindProperty("EnableDetailedDebugLog");
                     GUIContent detailedDebugLogLabel = isJa 
-                        ? new GUIContent("詳細デバッグ", "アイテム個別の処理状況まで詳細に出力します（重いです）")
-                        : new GUIContent("Detailed Debug", "Outputs per-item processing details (Can be heavy)");
+                        ? new GUIContent("詳細デバッグ", "アイテム個別の処理状況まで詳細に出力します（高負荷）")
+                        : new GUIContent("Detailed Debug", "Outputs per-item processing details (Heavy)");
                     EditorGUILayout.PropertyField(detailedDebugLogProp, detailedDebugLogLabel);
                     EditorGUI.indentLevel--;
                 }

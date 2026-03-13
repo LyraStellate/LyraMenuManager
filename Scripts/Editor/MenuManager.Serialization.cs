@@ -56,7 +56,7 @@ namespace Lyra.Editor{
                     else if (subChoice == 2) {
                         if (!MenuManagerAuthGuard.CanUseExtended()){
                             EditorUtility.DisplayDialog("Menu Manager",
-                                "差分保存はPro版限定機能です。\n認証をお願いします。", "OK");
+                                "差分保存はPro版限定機能です。", "OK");
                             return;
                         }
                         if (layoutData.ExtendedLayout == null) {
@@ -82,7 +82,7 @@ namespace Lyra.Editor{
                     $"メニューレイアウトを保存しました。\n\n" +
                     $"アイテム数: {allItems.Count}\n\n" +
                     $"保存先: {(layoutData.ExtendedLayout != null ? "Extended Layout" : "Base Layout")}\n\n" +
-                    $"※ ビルド時にNDMFプラグインが自動でメニューを並び替えます。",
+                    $"※ ビルド時にプラグインが自動でメニューを並び替えます。",
                     "OK");
             }
 

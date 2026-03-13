@@ -115,6 +115,34 @@ namespace Lyra.Editor{
                 normal = { textColor = new Color(1, 1, 1, 0.12f) }
             };
 
+            _sMiniBtnCentered = new GUIStyle(EditorStyles.miniButton) {
+                fontSize = 10,
+                alignment = TextAnchor.MiddleCenter,
+                padding = new RectOffset(0, 0, 0, 0),
+                margin = new RectOffset(0, 0, 0, 0)
+            };
+
+            _sLabelItem = new GUIStyle(EditorStyles.label) {
+                alignment = TextAnchor.MiddleLeft,
+                fontSize = 12
+            };
+
+            _sBoldLabelItem = new GUIStyle(_sLabelItem) {
+                fontStyle = FontStyle.Bold
+            };
+
+            _sBadgeLabel = new GUIStyle(EditorStyles.miniLabel) {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 9
+            };
+
+            _sSettingsBtn = new GUIStyle(GUI.skin.button) {
+                padding = new RectOffset(6, 6, 6, 6),
+                fixedWidth = 34,
+                fixedHeight = 34,
+                margin = new RectOffset(2, 2, 2, 2)
+            };
+
             _stylesOk = true;
         }
 
@@ -240,59 +268,128 @@ namespace Lyra.Editor{
 
         private Vector2 _avatarListScrollPos;
         
+        private List<VRCAvatarDescriptor> _cachedAvatars = new List<VRCAvatarDescriptor>();
+        private double _lastAvatarRefreshTime = 0;
+
         private void DrawAvatarList() {
-            var avatars = UnityEngine.Object.FindObjectsOfType<VRCAvatarDescriptor>(true);
-            if (avatars == null || avatars.Length == 0) return;
+            if (EditorApplication.timeSinceStartup - _lastAvatarRefreshTime > 1.0) {
+                _lastAvatarRefreshTime = EditorApplication.timeSinceStartup;
+                var avatars = UnityEngine.Object.FindObjectsOfType<VRCAvatarDescriptor>(true);
+                _cachedAvatars = avatars?
+                    .Where(av => av != null && av.gameObject != null && av.gameObject.scene.IsValid())
+                    .OrderByDescending(av => av.gameObject.activeInHierarchy)
+                    .ThenBy(av => av.gameObject.name)
+                    .ToList() ?? new List<VRCAvatarDescriptor>();
+            }
 
-            var validAvatars = avatars
-                .Where(av => av != null && av.gameObject != null && av.gameObject.scene.IsValid())
-                .OrderByDescending(av => av.gameObject.activeInHierarchy)
-                .ThenBy(av => av.gameObject.name)
-                .ToList();
-
-            if (validAvatars.Count == 0) return;
+            if (_cachedAvatars.Count == 0) return;
+            var validAvatars = _cachedAvatars;
 
             EditorGUILayout.Space(10);
 
             EditorGUILayout.BeginHorizontal();
-            GUILayout.Space(20);
+            GUILayout.Space(24);
             EditorGUILayout.LabelField("シーン内のアバター", _sHeaderLeft);
             EditorGUILayout.EndHorizontal();
 
-            EditorGUILayout.Space(4);
+            EditorGUILayout.Space(6);
 
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Space(20);
+            var listBgRect = EditorGUILayout.BeginVertical();
+            EditorGUI.DrawRect(listBgRect, Color.black * 0.15f);
 
             _avatarListScrollPos = EditorGUILayout.BeginScrollView(_avatarListScrollPos, GUILayout.Height(400));
+            
+            EditorGUILayout.Space(12);
 
-            foreach (var av in validAvatars) {
+            var evt = Event.current;
+            float viewWidth = EditorGUIUtility.currentViewWidth - 60;
+            float cardWidth = (viewWidth / 2f) - 6; 
+            float cardHeight = 44; 
+
+            for (int i = 0; i < validAvatars.Count; i += 2) {
                 EditorGUILayout.BeginHorizontal();
-                GUILayout.Space(4);
+                GUILayout.Space(6);
 
-                var prevColor = GUI.contentColor;
-                if (!av.gameObject.activeInHierarchy) {
-                    GUI.contentColor = Color.gray;
+                for (int j = 0; j < 2; j++) {
+                    int idx = i + j;
+                    if (idx >= validAvatars.Count) {
+                        GUILayout.Space(cardWidth + 8);
+                        continue;
+                    }
+
+                    var av = validAvatars[idx];
+                    if (av == null) {
+                        GUILayout.Space(cardWidth + 8);
+                        continue;
+                    }
+                    var cardRect = GUILayoutUtility.GetRect(cardWidth, cardHeight);
+                    
+                    bool isSelected = (_avatar == av);
+                    bool isHover = cardRect.Contains(evt.mousePosition);
+                    bool isActive = av.gameObject.activeInHierarchy;
+
+                    if (evt.type == EventType.MouseMove && isHover) Repaint();
+
+                    Color cardBaseCol = new Color(0.28f, 0.28f, 0.28f);
+                    Color bgCol = isSelected ? ACCENT * 0.45f : (isHover ? Color.white * 0.15f : cardBaseCol);
+                    if (!isActive && !isSelected && !isHover) bgCol.a *= 0.6f;
+                    EditorGUI.DrawRect(cardRect, bgCol);
+                    
+                    Color borderCol = isSelected ? ACCENT : (isHover ? Color.white * 0.3f : Color.white * 0.08f);
+                    DrawBorder(cardRect, borderCol, 1f);
+
+                    var nameRect = new Rect(cardRect.x + 8, cardRect.y + 6, cardRect.width - 52, 18);
+                    var nameStyle = isSelected ? _sBoldLabelItem : _sLabelItem;
+                    nameStyle.normal.textColor = isActive ? Color.white : Color.gray;
+                    GUI.Label(nameRect, av.gameObject.name, nameStyle);
+
+                    var layoutData = av.GetComponent<MenuLayoutData>();
+                    if (layoutData != null) {
+                        float badgeY = cardRect.y + 26;
+                        float badgeX = cardRect.x + 8;
+                        if (layoutData.BaseLayout != null) {
+                            DrawBadge(new Rect(badgeX, badgeY, 34, 14), "Base", ACCENT);
+                            badgeX += 38;
+                        }
+                        if (layoutData.ExtendedLayout != null) {
+                            DrawBadge(new Rect(badgeX, badgeY, 30, 14), "Ext", ACCENT_SUB);
+                        }
+                    }
+
+                    var selectBtnRect = new Rect(cardRect.xMax - 48, cardRect.y + 4, 44, cardHeight - 8);
+                    if (GUI.Button(selectBtnRect, "選択", _sMiniBtnCentered)) {
+                        Selection.activeGameObject = av.gameObject;
+                        EditorGUIUtility.PingObject(av.gameObject);
+                        evt.Use();
+                    }
+                    else if (evt.type == EventType.MouseDown && cardRect.Contains(evt.mousePosition) && !selectBtnRect.Contains(evt.mousePosition) && evt.button == 0) {
+                        _avatar = av;
+                        SaveLastAvatarIdentifier();
+                        ClearMenu();
+                        RebuildMenu();
+                        evt.Use();
+                    }
+
+                    GUILayout.Space(6);
                 }
 
-                if (GUILayout.Button(av.gameObject.name, GUILayout.Height(22))) {
-                    _avatar = av;
-                    SaveLastAvatarIdentifier();
-                    ClearMenu();
-                    RebuildMenu();
-                }
-
-                GUI.contentColor = prevColor;
-
-                GUILayout.Space(4);
                 EditorGUILayout.EndHorizontal();
-                EditorGUILayout.Space(2);
+                EditorGUILayout.Space(6);
             }
 
             EditorGUILayout.EndScrollView();
+            EditorGUILayout.EndVertical();
+        }
 
-            GUILayout.Space(20);
-            EditorGUILayout.EndHorizontal();
+        private void DrawBadge(Rect r, string text, Color color) {
+            EditorGUI.DrawRect(r, color * 0.2f);
+            DrawBorder(r, color * 0.5f, 1f);
+            var style = new GUIStyle(EditorStyles.miniLabel) {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 9,
+                normal = { textColor = color }
+            };
+            GUI.Label(r, text, style);
         }
 
         private int _totalCrumbWidth = 0;
@@ -375,9 +472,10 @@ namespace Lyra.Editor{
         private GUIContent _settingsIconContent;
         private void DrawGlobalSettings(){
             if (_settingsIconContent == null || _settingsIconContent.image == null){
-                _settingsIconContent = new GUIContent(GetIcon("settings.png"), "設定");
+                _settingsIconContent = EditorGUIUtility.IconContent("SettingsIcon");
+                _settingsIconContent.tooltip = "ビルド・詳細設定を開く";
             }
-            if (GUILayout.Button(_settingsIconContent, _sIconBtn, GUILayout.Width(28), GUILayout.Height(28))){
+            if (GUILayout.Button(_settingsIconContent, _sSettingsBtn, GUILayout.Width(34), GUILayout.Height(34))){
                 var wins = Resources.FindObjectsOfTypeAll<MenuManagerSettings>();
                 bool anyOpen = false;
                 foreach (var w in wins) if (w != null){ anyOpen = true; break; }

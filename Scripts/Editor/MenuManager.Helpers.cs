@@ -104,6 +104,17 @@ namespace Lyra.Editor{
             }
         }
 
+        private bool ContainsBuildTimeRecursive(MenuNode node){
+            if (node == null || node.Entries == null) return false;
+            foreach (var e in node.Entries){
+                if (e.IsBuildTime) return true;
+                if (e.Type == VRCExpressionsMenu.Control.ControlType.SubMenu && e.SubMenu != null){
+                    if (ContainsBuildTimeRecursive(e.SubMenu)) return true;
+                }
+            }
+            return false;
+        }
+
         private void DrawTypeIcon(Vector2 c, MenuEntry e, float s = 26){
             var tc = TypeColor(e.Type);
             var r = new Rect(c.x - s / 2, c.y - s / 2, s, s);

@@ -122,6 +122,10 @@ namespace Lyra.Editor{
         private GUIStyle _sLabelItalic, _sLabelLeft, _sLabelItalicLeft, _sCenterLarge, _sBadge, _sTextFieldCenter;
         private GUIStyle _sHeaderLeft, _sSmallLeft, _sBtnNoPadding, _sBtnSmall, _sTextFieldLeft, _sBadgeBold, _sIconBtn, _sBtnIcon;
         private GUIStyle _sHeaderDropZone, _sCrumbSep, _sCrumbNorm, _sCrumbBold, _sCrumbHover, _sCenterPlus;
+        private GUIStyle _sLabelItem;
+        private GUIStyle _sBoldLabelItem;
+        private GUIStyle _sMiniBtnCentered;
+        private GUIStyle _sBadgeLabel, _sSettingsBtn;
         private bool _stylesOk;
         private bool _useVRcStyleUI = true;
         private bool _showInventory = true;
@@ -129,7 +133,7 @@ namespace Lyra.Editor{
 
         private Dictionary<string, Texture2D> _iconCache;
 
-        [MenuItem("Tools/Lyra/Menu Manager")]
+        [MenuItem("Tools/Lyra Menu Manager/Menu Manager", false, 1000)]
         public static void ShowWindow(){
             var w = GetWindow<MenuManager>("Menu Manager");
             w.minSize = new Vector2(680, 750);
@@ -234,6 +238,7 @@ namespace Lyra.Editor{
             InitStyles();
 
             if (_avatar == null && _rootNode != null){
+                _avatar = null;
                 ClearMenu();
             }
 
@@ -251,7 +256,7 @@ namespace Lyra.Editor{
                 }
                 if (corrupted){
                     _navStack.Clear();
-                    _navStack.Add(new BreadcrumbEntry { Node = _rootNode, Name = _rootNode.Name ?? _avatar?.gameObject.name ?? "Root" });
+                    _navStack.Add(new BreadcrumbEntry { Node = _rootNode, Name = _rootNode.Name ?? (_avatar != null ? _avatar.gameObject.name : "Root") });
                 }
 
                 DrawInventoryArea();

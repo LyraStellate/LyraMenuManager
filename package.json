@@ -1,9 +1,9 @@
 {
     "name": "dev.lyrastellate.menu-manager",
     "displayName": "Lyra Menu Manager",
-    "version": "0.8.6",
+    "version": "1.0.0",
     "unity": "2022.3",
-    "description": "ExpressionMenuを直感的に編集できるエディター拡張",
+    "description": "エクスプレッションメニューを直感的に編集できるエディター拡張",
     "author": {
         "name": "Lyra",
         "url": "https://github.com/LyraStellate"

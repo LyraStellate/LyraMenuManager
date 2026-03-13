@@ -29,6 +29,7 @@ namespace Lyra.Editor{
             public string Role;
         }
 
+        [MenuItem("Tools/Lyra Menu Manager/Data Manager", false, 1001)]
         public static void ShowWindow(){
             var w = GetWindow<MenuManagerDataManager>("データ管理", true);
             w.minSize = new Vector2(400, 350);
@@ -44,7 +45,7 @@ namespace Lyra.Editor{
 
             EditorGUILayout.LabelField("未参照アセットのクリーンアップ", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
-                "どのアバターからも参照されていない MenuLayoutDataAsset を検出します。\n" +
+                "どのアバターからも参照されていないMenuLayoutDataAssetを検出します。\n" +
                 "不要なアセットを選択して削除できます。",
                 MessageType.Info);
 
@@ -119,7 +120,7 @@ namespace Lyra.Editor{
 
             EditorGUILayout.LabelField("アセット参照元の検索", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
-                "指定した MenuLayoutDataAsset がどのアバターから参照されているかを検索します。",
+                "指定したMenuLayoutDataAssetがどのアバターから参照されているかを検索します。",
                 MessageType.Info);
 
             EditorGUILayout.Space(4);

@@ -19,6 +19,7 @@ namespace Lyra.Editor{
         private GameObject _draggedObject;
         private List<string> _projectAfterPlugins = new List<string>();
 
+        [MenuItem("Tools/Lyra Menu Manager/Settings", false, 1002)]
         public static void ShowWindow(){
             var window = GetWindow<MenuManagerSettings>("Menu Manager Settings", true);
             window.minSize = new Vector2(300, 200);
@@ -260,7 +261,7 @@ namespace Lyra.Editor{
                 var prevCol = GUI.backgroundColor;
                 GUI.backgroundColor = new Color(0.8f, 0.4f, 0.4f);
                 if (GUILayout.Button(isJa ? "認証状態をリセット" : "Reset Authentication", GUILayout.Width(160), GUILayout.Height(24))){
-                    if (EditorUtility.DisplayDialog("確認", "認証状態をリセットしますか？\n(無料版の制限状態に戻ります)", "はい", "キャンセル")){
+                    if (EditorUtility.DisplayDialog("確認", "認証状態をリセットしますか？\n(未認証状態に戻ります)", "はい", "キャンセル")){
                         MenuManagerAuth.ResetAuth();
                         NotifyMain();
                     }
@@ -421,7 +422,7 @@ namespace Lyra.Editor{
                     fontSize = 11,
                     normal = { textColor = new Color(0.4f, 0.9f, 0.5f) }
                 };
-                GUI.Label(statusRect, " 有料版 認証済み", statusStyle);
+                GUI.Label(statusRect, "認証済み", statusStyle);
 
                 GUILayout.Space(10);
                 EditorGUILayout.EndHorizontal();
@@ -433,7 +434,7 @@ namespace Lyra.Editor{
                 var prevBg = GUI.backgroundColor;
                 GUI.backgroundColor = new Color(0.12f, 0.65f, 0.65f);
 
-                if (GUILayout.Button(" 有料版をロック解除", GUILayout.Height(32))){
+                if (GUILayout.Button("Pro版をロック解除", GUILayout.Height(32))){
                     MenuManagerAuthWindow.ShowWindow();
                 }
                 GUI.backgroundColor = prevBg;

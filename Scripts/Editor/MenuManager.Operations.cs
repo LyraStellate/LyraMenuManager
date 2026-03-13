@@ -160,6 +160,10 @@ namespace Lyra.Editor{
         }
 
         private void InsertItemWithOverflow(MenuNode parentNode, int insertIdx, MenuEntry itemToAdd){
+            if (itemToAdd.IsBuildTime && ContainsBuildTimeRecursive(_rootNode)) {
+                EditorUtility.DisplayDialog("登録エラー", "ビルド日時アイテムは既にメニュー内に存在します。\n重複して登録することはできません。", "OK");
+                return;
+            }
             insertIdx = Mathf.Clamp(insertIdx, 0, parentNode.Entries.Count);
             parentNode.Entries.Insert(insertIdx, itemToAdd);
             _needsOverflowReeval = true;
