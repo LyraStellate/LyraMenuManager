@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Lyra{
     [DisallowMultipleComponent]
     [AddComponentMenu("Lyra/Menu manager")]
-    [Icon("Assets/Lyra/EditorTools/MenuManager/Scripts/Assets/LMM_Logo.png")]
+    [Icon("Packages/dev.lyrastellate.menu-manager/Scripts/Assets/LMM_Logo.png")]
     public class MenuLayoutData : MonoBehaviour, VRC.SDKBase.IEditorOnly{
         [Serializable]
         public class ItemLayout{

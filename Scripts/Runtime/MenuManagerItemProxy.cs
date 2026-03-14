@@ -5,7 +5,7 @@ using VRC.SDK3.Avatars.ScriptableObjects;
 namespace Lyra{
     [DisallowMultipleComponent]
     [AddComponentMenu("Lyra/Menu Manager Item Proxy")]
-    [Icon("Assets/Lyra/EditorTools/MenuManager/Scripts/Assets/LMM_Logo.png")]
+    [Icon("Packages/dev.lyrastellate.menu-manager/Scripts/Assets/LMM_Logo.png")]
     public class MenuManagerItemProxy : MonoBehaviour, VRC.SDKBase.IEditorOnly{
         [Tooltip("ビルド後のアイテム名(label)と一致させてください。")]
         public string menuItemName;
