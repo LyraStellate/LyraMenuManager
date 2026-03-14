@@ -25,7 +25,7 @@ namespace Lyra.Editor{
         public VRCExpressionsMenu.Control.Label[] Labels;
         public ModularAvatarMenuInstaller SourceInstaller;
         public ModularAvatarMenuItem SourceMenuItem;
-        public bool IsDynamic; 
+        public bool IsDynamic;
         public bool IsCustomFolder;
         public bool IsEditorOnly;
         public bool IsBuildTime;
@@ -33,6 +33,8 @@ namespace Lyra.Editor{
         public string PersistentId;
         public bool IsAutoOverflow;
         public bool IsNewEntry;
+        public MenuManagerItemProxy SourceProxy;
+        public bool IsProxyPathSegment;
     }
 
     [Serializable]

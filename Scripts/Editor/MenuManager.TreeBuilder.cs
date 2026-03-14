@@ -32,6 +32,8 @@ namespace Lyra.Editor{
                     menuToInstallers, rootInstallers, true);
                 _rootNode.Name = _avatar.gameObject.name;
 
+                AddProxyEntries(_rootNode);
+
                 AssignUniqueIds(_rootNode, new Dictionary<string, int>());
 
                 MarkEditorOnly(_rootNode, false);
@@ -155,6 +157,20 @@ namespace Lyra.Editor{
             }
         }
 
+        private void AddProxyEntries(MenuNode rootNode){
+            if (_avatar == null) return;
+            var proxies = _avatar.GetComponentsInChildren<MenuManagerItemProxy>(true);
+            foreach (var proxy in proxies){
+                if (string.IsNullOrEmpty(proxy.menuItemName)) continue;
+                if (IsEditorOnly(proxy.gameObject)) continue;
+                rootNode.Entries.Add(new MenuEntry{
+                    Name = proxy.menuItemName,
+                    Type = proxy.controlType,
+                    SourceProxy = proxy,
+                });
+            }
+        }
+
         private void MarkEditorOnly(MenuNode node, bool isParentEditorOnly){
             if (node == null || node.Entries == null) return;
             foreach (var e in node.Entries){
@@ -162,6 +178,8 @@ namespace Lyra.Editor{
                 if (e.SourceInstaller != null && IsEditorOnly(e.SourceInstaller.gameObject))
                     isLocalEditorOnly = true;
                 if (e.SourceMenuItem != null && IsEditorOnly(e.SourceMenuItem.gameObject))
+                    isLocalEditorOnly = true;
+                if (e.SourceProxy != null && IsEditorOnly(e.SourceProxy.gameObject))
                     isLocalEditorOnly = true;
 
                 e.IsEditorOnly = isParentEditorOnly || isLocalEditorOnly;
@@ -394,6 +412,7 @@ namespace Lyra.Editor{
                 if (entryID == layoutID) return true;
                 if (e.SourceMenuItem != null && UnityEditor.GlobalObjectId.GetGlobalObjectIdSlow(e.SourceMenuItem.gameObject).ToString() == layoutID) return true;
                 if (e.SourceInstaller != null && UnityEditor.GlobalObjectId.GetGlobalObjectIdSlow(e.SourceInstaller.gameObject).ToString() == layoutID) return true;
+                if (e.SourceProxy != null && UnityEditor.GlobalObjectId.GetGlobalObjectIdSlow(e.SourceProxy.gameObject).ToString() == layoutID) return true;
             }
 
             if (!string.IsNullOrEmpty(itemLayout.Key) && !string.IsNullOrEmpty(e.PersistentId)){
@@ -432,6 +451,7 @@ namespace Lyra.Editor{
                     if (entryID == layoutID) return true;
                     if (e.SourceMenuItem != null && UnityEditor.GlobalObjectId.GetGlobalObjectIdSlow(e.SourceMenuItem.gameObject).ToString() == layoutID) return true;
                     if (e.SourceInstaller != null && UnityEditor.GlobalObjectId.GetGlobalObjectIdSlow(e.SourceInstaller.gameObject).ToString() == layoutID) return true;
+                    if (e.SourceProxy != null && UnityEditor.GlobalObjectId.GetGlobalObjectIdSlow(e.SourceProxy.gameObject).ToString() == layoutID) return true;
                     return false;
                 });
                 
@@ -695,7 +715,8 @@ namespace Lyra.Editor{
                 CustomIcon = it.CustomIcon,
                 IsAutoOverflow = it.IsAutoOverflow,
                 IsDynamic = it.IsDynamic,
-                SourceObjId = it.SourceObjId
+                SourceObjId = it.SourceObjId,
+                IsProxyPathSegment = it.IsProxyPathSegment
             }).ToList();
 
             var dict = items.ToDictionary(it => it.Key);

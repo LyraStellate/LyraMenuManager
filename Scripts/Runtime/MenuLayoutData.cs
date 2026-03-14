@@ -28,6 +28,8 @@ namespace Lyra{
             public bool IsDynamic;
 
             public string SourceObjId;
+
+            public bool IsProxyPathSegment;
         }
 
         [Header("Assets")]

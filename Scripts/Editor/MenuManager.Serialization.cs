@@ -108,7 +108,8 @@ namespace Lyra.Editor{
                     CustomIcon = entry.Icon,
                     IsAutoOverflow = entry.IsAutoOverflow,
                     IsDynamic = entry.IsDynamic,
-                    SourceObjId = GetSourceObjId(entry)
+                    SourceObjId = GetSourceObjId(entry),
+                    IsProxyPathSegment = entry.IsProxyPathSegment
                 };
                 items.Add(item);
 
@@ -125,6 +126,7 @@ namespace Lyra.Editor{
             if (entry.SourceMenuItem != null) return UnityEditor.GlobalObjectId.GetGlobalObjectIdSlow(entry.SourceMenuItem).ToString();
             if (entry.SourceAsset != null) return UnityEditor.GlobalObjectId.GetGlobalObjectIdSlow(entry.SourceAsset).ToString() + ":__index__:" + entry.SourceIndex;
             if (entry.SourceInstaller != null) return UnityEditor.GlobalObjectId.GetGlobalObjectIdSlow(entry.SourceInstaller).ToString();
+            if (entry.SourceProxy != null) return UnityEditor.GlobalObjectId.GetGlobalObjectIdSlow(entry.SourceProxy.gameObject).ToString();
             return "";
         }
 

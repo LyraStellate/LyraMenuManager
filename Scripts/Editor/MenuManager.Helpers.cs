@@ -12,6 +12,7 @@ namespace Lyra.Editor{
         private string GetOriginalName(MenuEntry e){
             if (e.SourceMenuItem != null) return e.SourceMenuItem.gameObject.name;
             if (e.SourceInstaller != null) return e.SourceInstaller.gameObject.name;
+            if (e.SourceProxy != null) return e.SourceProxy.menuItemName;
             if (e.SourceAsset != null && e.SourceIndex >= 0 && e.SourceIndex < e.SourceAsset.controls.Count){
                 return e.SourceAsset.controls[e.SourceIndex].name;
             }

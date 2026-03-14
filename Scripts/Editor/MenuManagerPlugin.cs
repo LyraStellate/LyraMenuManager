@@ -125,6 +125,9 @@ namespace Lyra{
             public string Key0;
             public string Key1;
             public string Key2;
+            public bool IsProxy;
+            public string ProxyName;
+            public string[] ProxyParentPath;
         }
 
         private class PoolItem{
@@ -132,6 +135,7 @@ namespace Lyra{
             public string Key0;
             public string Key1;
             public string Key2;
+            public bool IsProxyMatch;
         }
 
         private static void ReorderMenu(
@@ -159,6 +163,10 @@ namespace Lyra{
                 string valStr = parts.Length > 3 ? parts[3] : "1.00";
                 string counterStr = parts.Length > 4 ? parts[4] : "0";
 
+                bool isProxy = false;
+                string proxyName = null;
+                string[] proxyParentPath = null;
+
                 if (!string.IsNullOrEmpty(item.SourceObjId)){
                     try{
                         string[] idParts = item.SourceObjId.Split(new[] { ":__index__:" }, System.StringSplitOptions.None);
@@ -184,6 +192,19 @@ namespace Lyra{
                                         else {
                                             nameStr = go.name;
                                             typeStr = VRCExpressionsMenu.Control.ControlType.SubMenu.ToString();
+                                        }
+                                    }
+                                    else {
+                                        var proxy = go.GetComponent<MenuManagerItemProxy>();
+                                        if (proxy != null && !string.IsNullOrEmpty(proxy.menuItemName)){
+                                            nameStr = proxy.menuItemName;
+                                            typeStr = proxy.controlType.ToString();
+                                            isProxy = true;
+                                            proxyName = proxy.menuItemName;
+                                            if (proxy.parentFolderPath != null && proxy.parentFolderPath.Count > 0)
+                                                proxyParentPath = proxy.parentFolderPath
+                                                    .Where(s => !string.IsNullOrEmpty(s)).ToArray();
+                                            mk = $"{typeStr}:{nameStr}:{paramStr}:{valStr}:{counterStr}";
                                         }
                                     }
                                 }
@@ -229,7 +250,10 @@ namespace Lyra{
                     Original = item,
                     Key0 = item.SourceObjId ?? "",
                     Key1 = mk,
-                    Key2 = $"{typeStr}:{nameStr}"
+                    Key2 = $"{typeStr}:{nameStr}",
+                    IsProxy = isProxy,
+                    ProxyName = proxyName,
+                    ProxyParentPath = proxyParentPath
                 });
             }
 
@@ -238,7 +262,10 @@ namespace Lyra{
 
             var pool = new List<PoolItem>();
             var consumed = new HashSet<ParsedLayoutItem>();
-            
+
+            if (debugLog) Debug.Log("[MenuManagerPlugin] Extracting deep proxy controls (pre-pass)...");
+            ExtractDeepProxyControls(rootMenu, parsedItems, consumed, pool, keysCache, objIdCache, detailedLog);
+
             if (debugLog) Debug.Log("[MenuManagerPlugin] Extracting mapped controls...");
             ExtractMappedControls(rootMenu, parsedItems, visited, pool, keysCache, objIdCache, consumed, detailedLog);
             
@@ -317,6 +344,46 @@ namespace Lyra{
             return tk.Contains(":__custom__:");
         }
 
+        private static void ExtractDeepProxyControls(VRCExpressionsMenu rootMenu, List<ParsedLayoutItem> parsedItems, HashSet<ParsedLayoutItem> consumed, List<PoolItem> pool, Dictionary<VRCExpressionsMenu.Control, string> keysCache, Dictionary<VRCExpressionsMenu.Control, string> objIdCache, bool detailedLog){
+            foreach (var parsed in parsedItems){
+                if (!parsed.IsProxy) continue;
+                if (consumed.Contains(parsed)) continue;
+                if (parsed.ProxyParentPath == null || parsed.ProxyParentPath.Length == 0) continue;
+                if (string.IsNullOrEmpty(parsed.ProxyName)) continue;
+
+                var targetMenu = NavigateToMenuPath(rootMenu, parsed.ProxyParentPath);
+                if (targetMenu == null){
+                    if (detailedLog) Debug.LogWarning($"[MenuManagerPlugin] Deep proxy path not found: {string.Join("/", parsed.ProxyParentPath)} for '{parsed.ProxyName}'");
+                    continue;
+                }
+
+                for (int i = targetMenu.controls.Count - 1; i >= 0; i--){
+                    var ctrl = targetMenu.controls[i];
+                    if (ctrl.name != parsed.ProxyName) continue;
+                    consumed.Add(parsed);
+                    string key0 = objIdCache.TryGetValue(ctrl, out var oid) ? oid : "";
+                    string key1 = keysCache.TryGetValue(ctrl, out var k) ? k : GenerateControlKey(ctrl);
+                    string key2 = $"{ctrl.type}:{ctrl.name}";
+                    targetMenu.controls.RemoveAt(i);
+                    pool.Add(new PoolItem { Ctrl = ctrl, Key0 = key0, Key1 = key1, Key2 = key2, IsProxyMatch = true });
+                    if (detailedLog) Debug.Log($"[MenuManagerPlugin] Deep proxy extracted: '{ctrl.name}' from path '{string.Join("/", parsed.ProxyParentPath)}'");
+                    break;
+                }
+            }
+        }
+
+        private static VRCExpressionsMenu NavigateToMenuPath(VRCExpressionsMenu root, string[] folderPath){
+            var current = root;
+            foreach (var folderName in folderPath){
+                if (current == null) return null;
+                var ctrl = current.controls?.Find(c =>
+                    c.type == VRCExpressionsMenu.Control.ControlType.SubMenu && c.name == folderName);
+                if (ctrl == null) return null;
+                current = ctrl.subMenu;
+            }
+            return current;
+        }
+
         private static void ExtractMappedControls(VRCExpressionsMenu menu, List<ParsedLayoutItem> parsedItems, HashSet<VRCExpressionsMenu> visited, List<PoolItem> pool, Dictionary<VRCExpressionsMenu.Control, string> keysCache, Dictionary<VRCExpressionsMenu.Control, string> objIdCache, HashSet<ParsedLayoutItem> consumed, bool detailedLog){
             if (menu == null || menu.controls == null || !visited.Add(menu)) return;
 
@@ -333,12 +400,17 @@ namespace Lyra{
 
                 if (match != null){
                     consumed.Add(match);
-                    if (detailedLog) Debug.Log($"[MenuManagerPlugin] Extracted to pool: {ctrl.name} (Matched Key: {match.Original.Key}, SourceObjId: {(key0.Length > 0 ? "YES" : "fallback")})");
+                    if (detailedLog) Debug.Log($"[MenuManagerPlugin] Extracted to pool: {ctrl.name} (Matched Key: {match.Original.Key}, SourceObjId: {(key0.Length > 0 ? "YES" : "fallback")}{(match.IsProxy ? ", PROXY" : "")})");
                     menu.controls.RemoveAt(i);
-                    pool.Add(new PoolItem { Ctrl = ctrl, Key0 = key0, Key1 = key1, Key2 = key2 });
+                    pool.Add(new PoolItem { Ctrl = ctrl, Key0 = key0, Key1 = key1, Key2 = key2, IsProxyMatch = match.IsProxy });
 
                     if (match.Original.IsSubMenu && match.Original.IsDynamic){
                         if (detailedLog) Debug.Log($"[MenuManagerPlugin] Skipping extraction for children of dynamic folder: {ctrl.name}");
+                        continue;
+                    }
+
+                    if (match.IsProxy && ctrl.type == VRCExpressionsMenu.Control.ControlType.SubMenu){
+                        if (detailedLog) Debug.Log($"[MenuManagerPlugin] Skipping extraction for children of proxy folder: {ctrl.name}");
                         continue;
                     }
                 }
@@ -450,6 +522,22 @@ namespace Lyra{
                         RebuildMenuLevel(virtualSub, subPath, legPath, layout, pool, parsedItems, detailedLog, assetContainer);
                         newControls.Add(virtualCtrl);
                     }
+                    else if (item.IsProxyPathSegment){
+                        var existingCtrl = currentMenu.controls?.Find(c =>
+                            c.type == VRCExpressionsMenu.Control.ControlType.SubMenu &&
+                            c.name == (item.DisplayName ?? ""));
+                        if (existingCtrl?.subMenu != null){
+                            if (detailedLog) Debug.Log($"[MenuManagerPlugin] Navigating into existing proxy path segment: '{item.DisplayName}' at path: '{currentPath}'");
+                            currentMenu.controls.Remove(existingCtrl);
+                            string subPath = string.IsNullOrEmpty(currentPath) ? item.Key : currentPath + "/" + item.Key;
+                            string legPath = string.IsNullOrEmpty(legacyPath) ? item.DisplayName : legacyPath + "/" + item.DisplayName;
+                            RebuildMenuLevel(existingCtrl.subMenu, subPath, legPath, layout, pool, parsedItems, detailedLog, assetContainer);
+                            newControls.Add(existingCtrl);
+                        }
+                        else{
+                            if (detailedLog) Debug.Log($"[MenuManagerPlugin] Proxy path segment not found in built menu: '{item.DisplayName}' at path: '{currentPath}'");
+                        }
+                    }
                     else{
                         if (detailedLog) Debug.Log($"[MenuManagerPlugin] Skipping deleted menu entry: {item.DisplayName} at path: '{currentPath}'");
                     }
@@ -489,15 +577,21 @@ namespace Lyra{
             int idx = -1;
 
             if (idx < 0 && !string.IsNullOrEmpty(parsed.Key0))
-                for (int i = 0; i < pool.Count; i++) if (!string.IsNullOrEmpty(pool[i].Key0) && pool[i].Key0 == parsed.Key0) { idx = i; break; }
+                for (int i = 0; i < pool.Count; i++){
+                    if (!string.IsNullOrEmpty(pool[i].Key0) && pool[i].Key0 == parsed.Key0
+                        && !(parsed.IsProxy == false && pool[i].IsProxyMatch)) { idx = i; break; }
+                }
 
-            if (idx < 0) for (int i = 0; i < pool.Count; i++) if (pool[i].Key1 == parsed.Key1) { idx = i; break; }
+            if (idx < 0) for (int i = 0; i < pool.Count; i++){
+                if (pool[i].Key1 == parsed.Key1 && !(parsed.IsProxy == false && pool[i].IsProxyMatch)) { idx = i; break; }
+            }
 
             if (idx < 0) {
                 int lastColon = parsed.Key1.LastIndexOf(':');
                 if (lastColon > 0) {
                     string baseKey = parsed.Key1.Substring(0, lastColon);
                     for (int i = 0; i < pool.Count; i++) {
+                        if (parsed.IsProxy == false && pool[i].IsProxyMatch) continue;
                         string pKey = pool[i].Key1;
                         int pLastColon = pKey.LastIndexOf(':');
                         if (pLastColon > 0 && pKey.Substring(0, pLastColon) == baseKey) { idx = i; break; }
@@ -510,6 +604,7 @@ namespace Lyra{
                 if (lParts.Length >= 3) {
                     string lTypeNameParam = $"{lParts[0]}:{lParts[1]}:{lParts[2]}";
                     for (int i = 0; i < pool.Count; i++) {
+                        if (parsed.IsProxy == false && pool[i].IsProxyMatch) continue;
                         string[] pParts = pool[i].Key1.Split(':');
                         if (pParts.Length >= 3 && $"{pParts[0]}:{pParts[1]}:{pParts[2]}" == lTypeNameParam) { idx = i; break; }
                     }
@@ -519,12 +614,13 @@ namespace Lyra{
             if (idx < 0){
                 int bestScore = -1;
                 for (int i = 0; i < pool.Count; i++){
+                    if (parsed.IsProxy == false && pool[i].IsProxyMatch) continue;
                     if (pool[i].Key2 == parsed.Key2){
                         int score = 0;
                         bool poolHasIcon = pool[i].Ctrl.icon != null;
                         bool layoutHasIcon = parsed.Original.CustomIcon != null;
                         if (poolHasIcon == layoutHasIcon) score += 1;
-                        
+
                         string[] pParts = pool[i].Key1.Split(':');
                         string[] lParts = parsed.Key1.Split(':');
                         if (pParts.Length >= 3 && lParts.Length >= 3 && pParts[2] == lParts[2]) score += 2;
@@ -533,6 +629,17 @@ namespace Lyra{
                             bestScore = score;
                             idx = i;
                         }
+                    }
+                }
+            }
+
+            if (idx < 0 && parsed.IsProxy && !string.IsNullOrEmpty(parsed.ProxyName)){
+                for (int i = 0; i < pool.Count; i++){
+                    if (pool[i].IsProxyMatch && pool[i].Ctrl.name == parsed.ProxyName){ idx = i; break; }
+                }
+                if (idx < 0){
+                    for (int i = 0; i < pool.Count; i++){
+                        if (pool[i].Ctrl.name == parsed.ProxyName){ idx = i; break; }
                     }
                 }
             }
@@ -583,12 +690,13 @@ namespace Lyra{
             }
 
             for (int j = 0; j < parsedItems.Count; j++)
-                if (parsedItems[j].Key1 == key1 && (consumed == null || !consumed.Contains(parsedItems[j]))) return parsedItems[j];
+                if (!parsedItems[j].IsProxy && parsedItems[j].Key1 == key1 && (consumed == null || !consumed.Contains(parsedItems[j]))) return parsedItems[j];
 
             int lastColon = key1.LastIndexOf(':');
             if (lastColon > 0) {
                 string baseKey = key1.Substring(0, lastColon);
                 for (int j = 0; j < parsedItems.Count; j++) {
+                    if (parsedItems[j].IsProxy) continue;
                     string pKey = parsedItems[j].Key1;
                     int pLastColon = pKey.LastIndexOf(':');
                     if (pLastColon > 0 && pKey.Substring(0, pLastColon) == baseKey && (consumed == null || !consumed.Contains(parsedItems[j]))) return parsedItems[j];
@@ -599,6 +707,7 @@ namespace Lyra{
             if (sParts.Length >= 3) {
                 string sTypeNameParam = $"{sParts[0]}:{sParts[1]}:{sParts[2]}";
                 for (int j = 0; j < parsedItems.Count; j++) {
+                    if (parsedItems[j].IsProxy) continue;
                     string[] pParts = parsedItems[j].Key1.Split(':');
                     if (pParts.Length >= 3 && $"{pParts[0]}:{pParts[1]}:{pParts[2]}" == sTypeNameParam && (consumed == null || !consumed.Contains(parsedItems[j]))) return parsedItems[j];
                 }
@@ -607,6 +716,7 @@ namespace Lyra{
             ParsedLayoutItem bestMatch = null;
             int bestScore = -1;
             for (int j = 0; j < parsedItems.Count; j++){
+                if (parsedItems[j].IsProxy) continue;
                 if (parsedItems[j].Key2 == key2 && (consumed == null || !consumed.Contains(parsedItems[j]))){
                     if (sourceCtrl != null && IsVirtualLayoutItem(parsedItems[j])) continue;
 
@@ -627,7 +737,22 @@ namespace Lyra{
                 }
             }
 
-            return bestMatch;
+            if (bestMatch != null) return bestMatch;
+
+            string ctrlNameFromKey = key2.Contains(":") ? key2.Substring(key2.IndexOf(':') + 1) : key2;
+            if (!string.IsNullOrEmpty(ctrlNameFromKey)){
+                for (int j = 0; j < parsedItems.Count; j++){
+                    var pi = parsedItems[j];
+                    if (pi.IsProxy && !string.IsNullOrEmpty(pi.ProxyName)
+                        && pi.ProxyName == ctrlNameFromKey
+                        && (pi.ProxyParentPath == null || pi.ProxyParentPath.Length == 0)
+                        && (consumed == null || !consumed.Contains(pi))){
+                        return pi;
+                    }
+                }
+            }
+
+            return null;
         }
 
         public static string GenerateControlKey(VRCExpressionsMenu.Control ctrl){

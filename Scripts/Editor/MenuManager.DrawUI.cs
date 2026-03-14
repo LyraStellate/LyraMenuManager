@@ -660,6 +660,7 @@ namespace Lyra.Editor{
 
                         var prevContentColor = GUI.contentColor;
                         if (entry.IsEditorOnly) GUI.contentColor = new Color(1f, 0.35f, 0.35f);
+                        else if (entry.SourceProxy != null) GUI.contentColor = new Color(0.3f, 1.0f, 0.3f);
                         else if (entry.IsNewEntry) GUI.contentColor = new Color(0.3f, 0.6f, 1.0f);
                         else if (entry.IsAutoOverflow) GUI.contentColor = Color.gray;
                         else if (isEmptyFolder) GUI.contentColor = new Color(1f, 0.85f, 0.2f);
@@ -917,6 +918,19 @@ namespace Lyra.Editor{
                 if (GUILayout.Button("選択", GUILayout.Width(40))){
                     Selection.activeObject = srcMA;
                     EditorGUIUtility.PingObject(srcMA);
+                }
+                EditorGUILayout.EndHorizontal();
+            }
+
+            if (e.SourceProxy != null){
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField("Proxy ソース:", GUILayout.Width(70));
+                EditorGUI.BeginDisabledGroup(true);
+                EditorGUILayout.ObjectField(e.SourceProxy, typeof(MenuManagerItemProxy), true);
+                EditorGUI.EndDisabledGroup();
+                if (GUILayout.Button("選択", GUILayout.Width(40))){
+                    Selection.activeObject = e.SourceProxy.gameObject;
+                    EditorGUIUtility.PingObject(e.SourceProxy);
                 }
                 EditorGUILayout.EndHorizontal();
             }
