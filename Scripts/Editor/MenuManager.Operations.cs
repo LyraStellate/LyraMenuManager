@@ -8,6 +8,7 @@ using UnityEditor;
 using UnityEngine;
 using VRC.SDK3.Avatars.ScriptableObjects;
 using Lyra;
+using jp.lilxyzw.lilycalinventory.runtime;
 
 namespace Lyra.Editor{
     public partial class MenuManager{
@@ -273,6 +274,10 @@ namespace Lyra.Editor{
             else if (target.SourceMenuItem != null){
                 freshNode.Entries.Add(ConvertMAMenuItem(target.SourceMenuItem, visited, m2i, ri));
             }
+            else if (target.SourceLilyCalItem != null){
+                var all = _avatar.GetComponentsInChildren<MenuBaseComponent>(true);
+                freshNode.Entries.Add(CreateLilyCalEntry(target.SourceLilyCalItem, all));
+            }
 
             var si = new HashSet<ModularAvatarMenuInstaller>();
             var smi = new HashSet<ModularAvatarMenuItem>();
@@ -281,6 +286,7 @@ namespace Lyra.Editor{
             if (target.SourceInstaller != null) si.Add(target.SourceInstaller);
             if (target.SourceMenuItem != null) smi.Add(target.SourceMenuItem);
             if (target.SourceAsset != null) sa.Add($"{target.SourceAsset.GetInstanceID()}:{target.SourceIndex}");
+            if (target.SourceLilyCalItem != null) sa.Add($"__LCI__:{target.SourceLilyCalItem.GetInstanceID()}");
 
             GatherSourceIdentifiers(freshNode, si, smi, sa);
 
@@ -325,6 +331,7 @@ namespace Lyra.Editor{
                 if (e.SourceInstaller != null) si.Add(e.SourceInstaller);
                 if (e.SourceMenuItem != null) smi.Add(e.SourceMenuItem);
                 if (e.SourceAsset != null) sa.Add($"{e.SourceAsset.GetInstanceID()}:{e.SourceIndex}");
+                if (e.SourceLilyCalItem != null) sa.Add($"__LCI__:{e.SourceLilyCalItem.GetInstanceID()}");
 
                 if (e.SubMenu != null) GatherSourceIdentifiers(e.SubMenu, si, smi, sa);
             }
@@ -334,6 +341,7 @@ namespace Lyra.Editor{
             if (e.SourceInstaller != null && si.Contains(e.SourceInstaller)) return true;
             if (e.SourceMenuItem != null && smi.Contains(e.SourceMenuItem)) return true;
             if (e.SourceAsset != null && sa.Contains($"{e.SourceAsset.GetInstanceID()}:{e.SourceIndex}")) return true;
+            if (e.SourceLilyCalItem != null && sa.Contains($"__LCI__:{e.SourceLilyCalItem.GetInstanceID()}")) return true;
             return false;
         }
 

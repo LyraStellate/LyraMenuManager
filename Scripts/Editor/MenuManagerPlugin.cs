@@ -3,17 +3,19 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using nadena.dev.ndmf;
 using UnityEditor;
 using UnityEngine;
 using VRC.SDK3.Avatars.Components;
 using VRC.SDK3.Avatars.ScriptableObjects;
 using nadena.dev.modular_avatar.core;
+using jp.lilxyzw.lilycalinventory.runtime;
 
 [assembly: ExportsPlugin(typeof(Lyra.MenuManagerPlugin))]
 
 namespace Lyra{
-    public class MenuManagerPlugin : Plugin<MenuManagerPlugin>{
+public class MenuManagerPlugin : Plugin<MenuManagerPlugin>{
         public override string QualifiedName => "lyra.menu-manager";
         public override string DisplayName => "Lyra Menu Manager";
 
@@ -205,6 +207,31 @@ namespace Lyra{
                                                 proxyParentPath = proxy.parentFolderPath
                                                     .Where(s => !string.IsNullOrEmpty(s)).ToArray();
                                             mk = $"{typeStr}:{nameStr}:{paramStr}:{valStr}:{counterStr}";
+                                        }
+                                        else {
+                                            var lilyComp = go.GetComponent<MenuBaseComponent>();
+                                            if (lilyComp != null){
+                                                var lilyso = new SerializedObject(lilyComp);
+                                                string lilyName = lilyso.FindProperty("menuName").stringValue;
+                                                if (string.IsNullOrEmpty(lilyName)) lilyName = go.name;
+                                                nameStr = lilyName;
+
+                                                try {
+                                                    var paramField = lilyComp.GetType().GetField("parameterName",
+                                                        System.Reflection.BindingFlags.Instance |
+                                                        System.Reflection.BindingFlags.NonPublic |
+                                                        System.Reflection.BindingFlags.Public);
+                                                    if (paramField != null){
+                                                        string lilyParam = paramField.GetValue(lilyComp) as string;
+                                                        if (!string.IsNullOrEmpty(lilyParam)) paramStr = lilyParam;
+                                                    }
+                                                }
+                                                catch {  }
+
+                                                isProxy = true;
+                                                proxyName = lilyName;
+                                                mk = $"{typeStr}:{nameStr}:{paramStr}:{valStr}:{counterStr}";
+                                            }
                                         }
                                     }
                                 }
@@ -738,6 +765,19 @@ namespace Lyra{
             }
 
             if (bestMatch != null) return bestMatch;
+
+            if (sParts.Length >= 3 && !string.IsNullOrEmpty(sParts[2])){
+                string sTypeNameParam = $"{sParts[0]}:{sParts[1]}:{sParts[2]}";
+                for (int j = 0; j < parsedItems.Count; j++){
+                    var pi = parsedItems[j];
+                    if (!pi.IsProxy) continue;
+                    if (consumed != null && consumed.Contains(pi)) continue;
+                    if (pi.ProxyParentPath != null && pi.ProxyParentPath.Length > 0) continue;
+                    string[] pParts = pi.Key1.Split(':');
+                    if (pParts.Length >= 3 && !string.IsNullOrEmpty(pParts[2]) && $"{pParts[0]}:{pParts[1]}:{pParts[2]}" == sTypeNameParam)
+                        return pi;
+                }
+            }
 
             string ctrlNameFromKey = key2.Contains(":") ? key2.Substring(key2.IndexOf(':') + 1) : key2;
             if (!string.IsNullOrEmpty(ctrlNameFromKey)){

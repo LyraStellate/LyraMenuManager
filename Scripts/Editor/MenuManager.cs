@@ -1,4 +1,4 @@
- #if UNITY_EDITOR
+#if UNITY_EDITOR
 
 using System;
 using System.Collections.Generic;
@@ -83,7 +83,7 @@ namespace Lyra.Editor{
         private bool _isDragging;
         private bool _dragFromInventory;
         private Vector2 _dragStart;
-        
+
         [SerializeField] private List<MenuEntry> _inventory = new List<MenuEntry>();
         [SerializeField] private List<MenuEntry> _extraOptions = new List<MenuEntry>();
         private Vector2 _inventoryScroll;
@@ -100,7 +100,7 @@ namespace Lyra.Editor{
         private bool _focusNameField = false;
         private MenuEntry _editingInventoryNameEntry;
         private string _editingInventoryNameStr = "";
-        
+
         private MenuEntry _detailEditNameEntry;
         private string _detailEditNameStr = "";
         private bool _focusInventoryNameField = false;
@@ -171,7 +171,7 @@ namespace Lyra.Editor{
             Undo.undoRedoPerformed += Repaint;
             MenuManagerAuth.OnAuthChanged += Repaint;
             _stylesOk = false;
-            
+
             EditorApplication.delayCall += RestoreLastAvatar;
         }
 
@@ -270,7 +270,7 @@ namespace Lyra.Editor{
             }
             else{
                 EditorGUILayout.BeginHorizontal();
-                
+
                 _crumbScrollPos = EditorGUILayout.BeginScrollView(_crumbScrollPos, GUIStyle.none, GUIStyle.none, GUILayout.Height(30));
                 EditorGUILayout.BeginHorizontal();
                 DrawBreadcrumbs();

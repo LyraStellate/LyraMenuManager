@@ -127,6 +127,7 @@ namespace Lyra.Editor{
             if (entry.SourceAsset != null) return UnityEditor.GlobalObjectId.GetGlobalObjectIdSlow(entry.SourceAsset).ToString() + ":__index__:" + entry.SourceIndex;
             if (entry.SourceInstaller != null) return UnityEditor.GlobalObjectId.GetGlobalObjectIdSlow(entry.SourceInstaller).ToString();
             if (entry.SourceProxy != null) return UnityEditor.GlobalObjectId.GetGlobalObjectIdSlow(entry.SourceProxy.gameObject).ToString();
+            if (entry.SourceLilyCalItem != null) return UnityEditor.GlobalObjectId.GetGlobalObjectIdSlow(entry.SourceLilyCalItem.gameObject).ToString();
             return "";
         }
 

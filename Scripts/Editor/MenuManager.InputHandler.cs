@@ -317,7 +317,7 @@ namespace Lyra.Editor{
                     menu.AddSeparator("");
                     menu.AddItem(new GUIContent("インベントリへ移動"), false, () => DeleteEntry(idx));
 
-                    if (e.Type == VRCExpressionsMenu.Control.ControlType.SubMenu && (e.SourceInstaller != null || e.SourceAsset != null || e.SourceMenuItem != null)){
+                    if (e.Type == VRCExpressionsMenu.Control.ControlType.SubMenu && (e.SourceInstaller != null || e.SourceAsset != null || e.SourceMenuItem != null || e.SourceLilyCalItem != null)){
                         menu.AddItem(new GUIContent("リセット"), false, () => ResetSubmenu(e, entries));
                     }
                 }

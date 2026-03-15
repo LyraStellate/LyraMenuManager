@@ -10,6 +10,7 @@ using UnityEngine;
 using VRC.SDK3.Avatars.Components;
 using VRC.SDK3.Avatars.ScriptableObjects;
 using Lyra;
+using jp.lilxyzw.lilycalinventory.runtime;
 
 namespace Lyra.Editor{
     public partial class MenuManager{
@@ -33,6 +34,8 @@ namespace Lyra.Editor{
                 _rootNode.Name = _avatar.gameObject.name;
 
                 AddProxyEntries(_rootNode);
+
+                AddLilyCalEntries(_rootNode);
 
                 AssignUniqueIds(_rootNode, new Dictionary<string, int>());
 
@@ -171,6 +174,63 @@ namespace Lyra.Editor{
             }
         }
 
+        private void AddLilyCalEntries(MenuNode rootNode){
+            if (_avatar == null) return;
+            var all = _avatar.GetComponentsInChildren<MenuBaseComponent>(true);
+            foreach (var comp in all){
+                if (IsEditorOnly(comp.gameObject)) continue;
+                if (GetDirectLilyCalParent(comp) != null) continue;
+                rootNode.Entries.Add(CreateLilyCalEntry(comp, all));
+            }
+        }
+
+        private MenuEntry CreateLilyCalEntry(MenuBaseComponent comp, MenuBaseComponent[] all){
+            var so = new SerializedObject(comp);
+            string menuName = so.FindProperty("menuName").stringValue;
+            if (string.IsNullOrEmpty(menuName)) menuName = comp.gameObject.name;
+
+            var entry = new MenuEntry{
+                Name = menuName,
+                Type = GetLilyCalControlType(comp),
+                SourceLilyCalItem = comp,
+            };
+
+            if (entry.Type == VRCExpressionsMenu.Control.ControlType.SubMenu){
+                var subNode = new MenuNode { Name = menuName };
+                foreach (var child in all){
+                    if (IsEditorOnly(child.gameObject)) continue;
+                    if (GetDirectLilyCalParent(child) != comp) continue;
+                    subNode.Entries.Add(CreateLilyCalEntry(child, all));
+                }
+                if (subNode.Entries.Count > 0) entry.SubMenu = subNode;
+            }
+
+            return entry;
+        }
+
+        private static MenuBaseComponent GetDirectLilyCalParent(MenuBaseComponent comp){
+            var so = new SerializedObject(comp);
+            var overrideRef = so.FindProperty("parentOverride").objectReferenceValue as MenuBaseComponent;
+            if (overrideRef != null) return overrideRef;
+
+            var t = comp.transform.parent;
+            while (t != null){
+                var mc = t.GetComponent<MenuBaseComponent>();
+                if (mc != null) return mc;
+                t = t.parent;
+            }
+            return null;
+        }
+
+        private static VRCExpressionsMenu.Control.ControlType GetLilyCalControlType(MenuBaseComponent comp){
+            switch (comp){
+                case MenuFolder _: return VRCExpressionsMenu.Control.ControlType.SubMenu;
+                case CostumeChanger _: return VRCExpressionsMenu.Control.ControlType.SubMenu;
+                case SmoothChanger _: return VRCExpressionsMenu.Control.ControlType.RadialPuppet;
+                default: return VRCExpressionsMenu.Control.ControlType.Toggle;
+            }
+        }
+
         private void MarkEditorOnly(MenuNode node, bool isParentEditorOnly){
             if (node == null || node.Entries == null) return;
             foreach (var e in node.Entries){
@@ -180,6 +240,8 @@ namespace Lyra.Editor{
                 if (e.SourceMenuItem != null && IsEditorOnly(e.SourceMenuItem.gameObject))
                     isLocalEditorOnly = true;
                 if (e.SourceProxy != null && IsEditorOnly(e.SourceProxy.gameObject))
+                    isLocalEditorOnly = true;
+                if (e.SourceLilyCalItem != null && IsEditorOnly(e.SourceLilyCalItem.gameObject))
                     isLocalEditorOnly = true;
 
                 e.IsEditorOnly = isParentEditorOnly || isLocalEditorOnly;
@@ -345,6 +407,7 @@ namespace Lyra.Editor{
                     if (tk.Contains(":__custom__:")) e.IsCustomFolder = true;
 
                     if (!string.IsNullOrEmpty(item.DisplayName)) e.Name = item.DisplayName;
+                    e.Icon = item.CustomIcon;
 
                     if (item.IsSubMenu){
                         if (e.SubMenu == null) e.SubMenu = new MenuNode { Name = e.Name ?? item.DisplayName };
@@ -477,7 +540,10 @@ namespace Lyra.Editor{
                 string[] parts = typeKey.Split(new[] { ':' }, 5);
                 string typeStr = parts.Length > 0 ? parts[0] : "";
                 string nameStr = parts.Length > 1 ? parts[1] : itemLayout.DisplayName;
-                idx = pool.FindIndex(e => e.Type.ToString() == typeStr && e.Name == nameStr);
+                bool layoutHasIcon = itemLayout.CustomIcon != null;
+                idx = pool.FindIndex(e => e.Type.ToString() == typeStr && e.Name == nameStr && (e.Icon != null) == layoutHasIcon);
+                if (idx < 0)
+                    idx = pool.FindIndex(e => e.Type.ToString() == typeStr && e.Name == nameStr);
             }
 
             if (idx >= 0){

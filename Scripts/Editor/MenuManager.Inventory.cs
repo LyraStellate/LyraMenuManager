@@ -17,15 +17,15 @@ namespace Lyra.Editor{
                 DrawBorder(narrowRect, SEPARATOR, 1f);
 
                 GUILayout.FlexibleSpace();
-                
+
                 var handleRect = GUILayoutUtility.GetRect(30, 100);
                 var isHoverHandle = handleRect.Contains(Event.current.mousePosition);
-                
+
                 var tabRect = new Rect(handleRect.x + 5, handleRect.y, 22, handleRect.height);
-                
+
                 Color tabCol = isHoverHandle ? ACCENT * 0.4f : ACCENT * 0.15f;
                 EditorGUI.DrawRect(tabRect, tabCol);
-                
+
                 EditorGUI.DrawRect(new Rect(tabRect.x, tabRect.y, 2, tabRect.height), isHoverHandle ? Color.white : ACCENT);
 
                 var dotStyle = new GUIStyle(EditorStyles.label) {
@@ -33,7 +33,7 @@ namespace Lyra.Editor{
                     fontSize = 12,
                     normal = { textColor = isHoverHandle ? Color.white : TEXT_SEC }
                 };
-                
+
                 float midX = tabRect.center.x;
                 float midY = tabRect.center.y;
                 GUI.Label(new Rect(midX - 10, midY - 10, 20, 20), "»", dotStyle);
@@ -66,7 +66,7 @@ namespace Lyra.Editor{
             EditorGUILayout.LabelField(" インベントリ", _sHeaderLeft);
             var closeBtnRect = GUILayoutUtility.GetRect(24, 24);
             bool isHoverClose = closeBtnRect.Contains(Event.current.mousePosition);
-            
+
             if (isHoverClose) {
                 EditorGUI.DrawRect(closeBtnRect, Color.white * 0.1f);
             }
@@ -121,7 +121,7 @@ namespace Lyra.Editor{
                         var moving = _dragInventoryEntry;
                         _dragInventoryList.Remove(moving);
                         _inventory.Add(moving);
-                        
+
                         _isDragging = false;
                         _dragFromInventory = false;
                         _dragIdx = -1;
@@ -136,9 +136,9 @@ namespace Lyra.Editor{
             EditorGUILayout.LabelField(" Extra Option", _sSmallLeft);
             EditorGUI.DrawRect(GUILayoutUtility.GetRect(0, 1, GUILayout.ExpandWidth(true)), SEPARATOR);
             EditorGUILayout.Space(4);
-            
+
             if (_extraOptions == null) _extraOptions = new List<MenuEntry>();
-            
+
             for (int i = _extraOptions.Count - 1; i >= 0; i--){
                 if (_extraOptions[i] == null || _extraOptions[i].Name != "ビルド日時"){
                     if (_extraOptions[i] != null) _inventory.Add(_extraOptions[i]);
@@ -287,9 +287,9 @@ namespace Lyra.Editor{
                     labelRect.width -= 28;
                 }
 
-                var dispName = entry.IsDynamic ? $"*{entry.Name}" : entry.IsCustomFolder ? $".{entry.Name}" : entry.Name;
-                var labelStyle = entry.IsCustomFolder ? _sLabelItalicLeft : _sLabelLeft;
-                
+                var dispName = entry.IsDynamic ? $"*{entry.Name}" : entry.Name;
+                var labelStyle = _sLabelLeft;
+
                 bool isEmptyFolder = entry.Type == VRCExpressionsMenu.Control.ControlType.SubMenu && (entry.SubMenu == null || entry.SubMenu.Entries.Count == 0);
 
                 var prevContentColor = GUI.contentColor;
@@ -346,8 +346,17 @@ namespace Lyra.Editor{
                 }
                 else{
                     GUI.Label(labelRect, dispName, labelStyle);
+                    if (entry.IsCustomFolder){
+                        float textW = Mathf.Min(_sLabelLeft.CalcSize(new GUIContent(dispName)).x, labelRect.width);
+                        EditorGUI.DrawRect(new Rect(labelRect.x, labelRect.yMax - 8f, textW, 1f), new Color(1f, 1f, 1f, 0.5f));
+                    }
                 }
                 GUI.contentColor = prevContentColor;
+
+                if (entry.SourceLilyCalItem != null)
+                    EditorGUI.DrawRect(new Rect(itemRect.xMax - 46, itemRect.y + 6, 2, 16), new Color(0.8f, 0.5f, 1.0f, 0.45f));
+                else if (entry.SourceInstaller != null || entry.SourceMenuItem != null)
+                    EditorGUI.DrawRect(new Rect(itemRect.xMax - 46, itemRect.y + 6, 2, 16), new Color(0.35f, 0.65f, 1.0f, 0.45f));
 
                 var tc = TypeColor(entry.Type);
                 var badgeRect = new Rect(itemRect.xMax - 38, itemRect.y + 6, 32, 16);
@@ -420,7 +429,7 @@ namespace Lyra.Editor{
                     _dragInventoryEntry = entry;
                     _dragInventoryList = list;
                     _dragStart = evt.mousePosition;
-                    
+
                     _selectedInventoryEntry = entry;
                     _selectedIdx = -1;
                     _showDetail = true;
@@ -478,7 +487,7 @@ namespace Lyra.Editor{
                     else menu.AddDisabledItem(new GUIContent("下に移動"));
 
                     menu.AddSeparator("");
-                    
+
                     if (capEntry.Type == VRCExpressionsMenu.Control.ControlType.SubMenu){
                         menu.AddSeparator("");
                         menu.AddItem(new GUIContent("サブフォルダ追加"), false, () => {
@@ -486,7 +495,7 @@ namespace Lyra.Editor{
                             if (capEntry.SubMenu == null) capEntry.SubMenu = new MenuNode { Name = capEntry.Name ?? "New Folder" };
                             _inventoryFoldouts[capEntry] = true;
                             if (capEntry.SubMenu.Entries == null) capEntry.SubMenu.Entries = new List<MenuEntry>();
-                            
+
                             var newFolder = new MenuEntry{
                                 Name = "New Folder",
                                 Icon = GetIcon("folder.png"),
@@ -518,7 +527,7 @@ namespace Lyra.Editor{
 
                     menu.AddSeparator("");
 
-                    if (!capEntry.IsBuildTime && capEntry.Type == VRCExpressionsMenu.Control.ControlType.SubMenu && (capEntry.SourceInstaller != null || capEntry.SourceAsset != null || capEntry.SourceMenuItem != null)){
+                    if (!capEntry.IsBuildTime && capEntry.Type == VRCExpressionsMenu.Control.ControlType.SubMenu && (capEntry.SourceInstaller != null || capEntry.SourceAsset != null || capEntry.SourceMenuItem != null || capEntry.SourceLilyCalItem != null)){
                         menu.AddItem(new GUIContent("リセット"), false, () => ResetSubmenu(capEntry, capList));
                     }
 
@@ -533,7 +542,7 @@ namespace Lyra.Editor{
                                 }
                                 capEntry.SubMenu.Entries.Clear();
                             }
-                            
+
                             capList.Remove(capEntry);
                             _hasUnsavedChanges = true;
                             Repaint();

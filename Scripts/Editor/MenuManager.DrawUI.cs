@@ -8,6 +8,7 @@ using UnityEditor;
 using UnityEngine;
 using VRC.SDK3.Avatars.Components;
 using VRC.SDK3.Avatars.ScriptableObjects;
+using jp.lilxyzw.lilycalinventory.runtime;
 using Lyra;
 
 namespace Lyra.Editor{
@@ -81,15 +82,15 @@ namespace Lyra.Editor{
                 normal = { textColor = TEXT_SEC },
                 wordWrap = true
             };
-            
-            _sCrumbSep = new GUIStyle(EditorStyles.miniLabel) { 
+
+            _sCrumbSep = new GUIStyle(EditorStyles.miniLabel) {
                 normal = { textColor = TEXT_SEC * 0.7f },
                 padding = new RectOffset(0, 0, 0, 0),
                 margin = new RectOffset(4, 4, 4, 0),
                 alignment = TextAnchor.MiddleCenter,
                 fontSize = 10
             };
-            
+
             _sCrumbNorm = new GUIStyle(EditorStyles.label) {
                 fontSize = 11,
                 padding = new RectOffset(4, 4, 0, 0),
@@ -105,7 +106,7 @@ namespace Lyra.Editor{
                 alignment = TextAnchor.MiddleCenter,
                 normal = { textColor = TEXT_PRI }
             };
-            
+
             _sCrumbHover = new GUIStyle(_sCrumbNorm) {
                 normal = { textColor = Color.white }
             };
@@ -165,7 +166,7 @@ namespace Lyra.Editor{
                 var layoutData = _avatar.GetComponent<MenuLayoutData>();
                 if (layoutData != null){
                     EditorGUILayout.BeginVertical(GUILayout.Width(250));
-                    
+
                     EditorGUILayout.BeginHorizontal();
                     EditorGUILayout.LabelField("Base", GUILayout.Width(60));
                     EditorGUI.BeginChangeCheck();
@@ -267,7 +268,7 @@ namespace Lyra.Editor{
         }
 
         private Vector2 _avatarListScrollPos;
-        
+
         private List<VRCAvatarDescriptor> _cachedAvatars = new List<VRCAvatarDescriptor>();
         private double _lastAvatarRefreshTime = 0;
 
@@ -298,13 +299,13 @@ namespace Lyra.Editor{
             EditorGUI.DrawRect(listBgRect, Color.black * 0.15f);
 
             _avatarListScrollPos = EditorGUILayout.BeginScrollView(_avatarListScrollPos, GUILayout.Height(400));
-            
+
             EditorGUILayout.Space(12);
 
             var evt = Event.current;
             float viewWidth = EditorGUIUtility.currentViewWidth - 60;
-            float cardWidth = (viewWidth / 2f) - 6; 
-            float cardHeight = 44; 
+            float cardWidth = (viewWidth / 2f) - 6;
+            float cardHeight = 44;
 
             for (int i = 0; i < validAvatars.Count; i += 2) {
                 EditorGUILayout.BeginHorizontal();
@@ -323,7 +324,7 @@ namespace Lyra.Editor{
                         continue;
                     }
                     var cardRect = GUILayoutUtility.GetRect(cardWidth, cardHeight);
-                    
+
                     bool isSelected = (_avatar == av);
                     bool isHover = cardRect.Contains(evt.mousePosition);
                     bool isActive = av.gameObject.activeInHierarchy;
@@ -334,7 +335,7 @@ namespace Lyra.Editor{
                     Color bgCol = isSelected ? ACCENT * 0.45f : (isHover ? Color.white * 0.15f : cardBaseCol);
                     if (!isActive && !isSelected && !isHover) bgCol.a *= 0.6f;
                     EditorGUI.DrawRect(cardRect, bgCol);
-                    
+
                     Color borderCol = isSelected ? ACCENT : (isHover ? Color.white * 0.3f : Color.white * 0.08f);
                     DrawBorder(cardRect, borderCol, 1f);
 
@@ -400,7 +401,7 @@ namespace Lyra.Editor{
             for (int i = 0; i < _navStack.Count; i++){
                 bool isLast = (i == _navStack.Count - 1);
                 var nm = string.IsNullOrEmpty(_navStack[i].Name) ? "Root" : _navStack[i].Name;
-                
+
                 if (i > 0) {
                     var sepContent = new GUIContent(">");
                     var szSep = _sCrumbSep.CalcSize(sepContent);
@@ -410,12 +411,12 @@ namespace Lyra.Editor{
                 var gc = new GUIContent(nm);
                 GUIStyle baseStyle = isLast ? _sCrumbBold : _sCrumbNorm;
                 var sz = baseStyle.CalcSize(gc);
-                
+
                 var rc = GUILayoutUtility.GetRect(sz.x + 2, 28, GUILayout.ExpandWidth(false));
-                
+
                 bool isHover = rc.Contains(evt.mousePosition);
                 GUIStyle currentStyle = isHover ? _sCrumbHover : baseStyle;
-                
+
                 if (isLast) {
                     var activeBg = ACCENT * 0.15f;
                     activeBg.a = 0.3f;
@@ -428,7 +429,7 @@ namespace Lyra.Editor{
 
                 if (_isDragging && _dragIdx >= 0 && !isLast && isHover){
                     _dropCrumbIdx = i;
-                    EditorGUI.DrawRect(rc, new Color(0.20f, 0.70f, 0.20f, 0.4f)); 
+                    EditorGUI.DrawRect(rc, new Color(0.20f, 0.70f, 0.20f, 0.4f));
 
                     if (evt.rawType == EventType.MouseUp){
                         var targetNode = _navStack[i].Node;
@@ -495,10 +496,10 @@ namespace Lyra.Editor{
             var entries = cur.Node.Entries;
             float ws = WHEEL_RADIUS * 2 + 80;
             var wr = GUILayoutUtility.GetRect(0, ws, GUILayout.ExpandWidth(true));
-            
+
             float viewWidth = EditorGUIUtility.currentViewWidth - (_showInventory ? 220f : 30f) - 20f;
             var center = new Vector2(wr.x + viewWidth / 2f, wr.y + wr.height / 2f);
-            
+
             var evt = Event.current;
 
             DrawDisc(center, WHEEL_RADIUS + 8, new Color(0.25f, 0.28f, 0.40f, 0.12f));
@@ -544,6 +545,8 @@ namespace Lyra.Editor{
             if (InRing(evt.mousePosition, center) && _dropBorderIdx < 0){
                 _hoverIdx = CalcSlice(evt.mousePosition, center, sliceN, startA);
             }
+
+            var deferredOverlays = new List<System.Action>();
 
             for (int i = 0; i < sliceN; i++){
                 float a0 = startA - i * step;
@@ -625,7 +628,7 @@ namespace Lyra.Editor{
                     }
 
                     var labelRect = new Rect(ic.x - 52, ic.y + ICON_SIZE / 2f - 10, 104, 28);
-                    
+
                     if (_editingNameIdx == entryIdx){
                         GUI.SetNextControlName("InlineRenameField");
 
@@ -644,7 +647,7 @@ namespace Lyra.Editor{
                         }
 
                         _editingNameStr = EditorGUI.TextField(labelRect, _editingNameStr, _sTextFieldCenter);
-                        
+
                         if (_focusNameField){
                             EditorGUI.FocusTextInControl("InlineRenameField");
                             _focusNameField = false;
@@ -653,9 +656,8 @@ namespace Lyra.Editor{
                     else{
                         string displayName = entry.Name ?? "(no name)";
                         if (entry.IsDynamic) displayName = "*" + displayName;
-                        else if (entry.IsCustomFolder) displayName = "." + displayName;
-                        
-                        var labelStyle = entry.IsCustomFolder ? _sLabelItalic : _sLabel;
+
+                        var labelStyle = _sLabel;
                         bool isEmptyFolder = entry.Type == VRCExpressionsMenu.Control.ControlType.SubMenu && (entry.SubMenu == null || entry.SubMenu.Entries.Count == 0);
 
                         var prevContentColor = GUI.contentColor;
@@ -664,19 +666,53 @@ namespace Lyra.Editor{
                         else if (entry.IsNewEntry) GUI.contentColor = new Color(0.3f, 0.6f, 1.0f);
                         else if (entry.IsAutoOverflow) GUI.contentColor = Color.gray;
                         else if (isEmptyFolder) GUI.contentColor = new Color(1f, 0.85f, 0.2f);
-                        
+
                         GUI.Label(labelRect, displayName, labelStyle);
                         GUI.contentColor = prevContentColor;
+
+                        if (entry.IsCustomFolder){
+                            float textW = Mathf.Min(_sLabel.CalcSize(new GUIContent(displayName)).x, 104f);
+                            var ulRect = new Rect(ic.x - textW / 2f, labelRect.yMax - 8f, textW, 1f);
+                            deferredOverlays.Add(() => EditorGUI.DrawRect(ulRect, new Color(1f, 1f, 1f, 0.5f)));
+                        }
                     }
 
+                    string srcLabel = null;
+                    Color srcColor = default;
+                    if (entry.SourceLilyCalItem != null){
+                        srcLabel = "LI";
+                        srcColor = new Color(0.8f, 0.5f, 1.0f, 0.9f);
+                    }
+                    else if (entry.SourceInstaller != null || entry.SourceMenuItem != null){
+                        srcLabel = "MA";
+                        srcColor = new Color(0.35f, 0.65f, 1.0f, 0.9f);
+                    }
+
+                    float groupW = srcLabel != null ? 66f : 44f;
+                    float groupX = ic.x - groupW / 2f;
+                    float badgeY = ic.y + ICON_SIZE / 2f + 14;
+
                     var tc = TypeColor(entry.Type);
-                    var badge = new Rect(ic.x - 22, ic.y + ICON_SIZE / 2f + 14, 44, 14);
+                    var badge = new Rect(groupX + (srcLabel != null ? 22f : 0f), badgeY, 44, 14);
                     EditorGUI.DrawRect(badge, tc * 0.35f);
-                    
+
                     var oldBadgeTC = _sBadge.normal.textColor;
                     _sBadge.normal.textColor = tc;
                     GUI.Label(badge, TypeShort(entry.Type), _sBadge);
                     _sBadge.normal.textColor = oldBadgeTC;
+
+                    if (srcLabel != null){
+                        var capturedRect = new Rect(groupX, badgeY, 20, 14);
+                        var capturedColor = srcColor;
+                        var capturedLbl = srcLabel;
+                        deferredOverlays.Add(() => {
+                            EditorGUI.DrawRect(capturedRect, capturedColor * 0.35f);
+                            var oldTC = _sBadge.normal.textColor;
+                            _sBadge.normal.textColor = capturedColor;
+                            GUI.Label(capturedRect, capturedLbl, _sBadge);
+                            _sBadge.normal.textColor = oldTC;
+                        });
+                    }
                 }
                 else if (isDummyBack){
                     string txt = isRoot ? "HOME" : "Back";
@@ -728,6 +764,8 @@ namespace Lyra.Editor{
             GUI.Label(new Rect(center.x - 30, center.y - 10, 60, 20), cTxt, _sCenterLarge);
             _sCenterLarge.normal.textColor = oldCenterTC;
 
+            foreach (var draw in deferredOverlays) draw();
+
             HandleInput(evt, center, entries);
 
             if (_dropBorderIdx >= 0){
@@ -748,16 +786,16 @@ namespace Lyra.Editor{
 
         private void DrawToolbar(){
             EditorGUILayout.Space(6);
-            
+
             EditorGUILayout.BeginHorizontal(GUILayout.Height(26));
             GUILayout.FlexibleSpace();
-            
+
             var entries = CurEntries();
             GUI.enabled = entries.Count < MAX_CONTROLS;
             if (GUILayout.Button("フォルダ作成", _sBtn, GUILayout.Width(140)))
                 AddNewSubMenu();
             GUI.enabled = true;
-            
+
             GUILayout.Space(12);
 
             var prevBg = GUI.backgroundColor;
@@ -772,7 +810,7 @@ namespace Lyra.Editor{
             reloadContent.tooltip = "再読み込み";
             if (GUILayout.Button(reloadContent, _sBtnIcon))
                 RebuildMenu();
-            
+
             GUILayout.FlexibleSpace();
             EditorGUILayout.EndHorizontal();
             EditorGUILayout.Space(4);
@@ -871,7 +909,7 @@ namespace Lyra.Editor{
                     }
                     _detailEditNameEntry = null;
                 }
-                
+
                 EditorGUILayout.TextField("名前", e.Name ?? "");
             }
 
@@ -931,6 +969,19 @@ namespace Lyra.Editor{
                 if (GUILayout.Button("選択", GUILayout.Width(40))){
                     Selection.activeObject = e.SourceProxy.gameObject;
                     EditorGUIUtility.PingObject(e.SourceProxy);
+                }
+                EditorGUILayout.EndHorizontal();
+            }
+
+            if (e.SourceLilyCalItem != null){
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField("LCI ソース:", GUILayout.Width(70));
+                EditorGUI.BeginDisabledGroup(true);
+                EditorGUILayout.ObjectField(e.SourceLilyCalItem, typeof(MenuBaseComponent), true);
+                EditorGUI.EndDisabledGroup();
+                if (GUILayout.Button("選択", GUILayout.Width(40))){
+                    Selection.activeObject = e.SourceLilyCalItem.gameObject;
+                    EditorGUIUtility.PingObject(e.SourceLilyCalItem);
                 }
                 EditorGUILayout.EndHorizontal();
             }
