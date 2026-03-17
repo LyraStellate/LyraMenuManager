@@ -10,7 +10,9 @@ using UnityEngine;
 using VRC.SDK3.Avatars.Components;
 using VRC.SDK3.Avatars.ScriptableObjects;
 using nadena.dev.modular_avatar.core;
+#if LILYCAL_INVENTORY
 using jp.lilxyzw.lilycalinventory.runtime;
+#endif
 
 [assembly: ExportsPlugin(typeof(Lyra.MenuManagerPlugin))]
 
@@ -209,6 +211,7 @@ public class MenuManagerPlugin : Plugin<MenuManagerPlugin>{
                                             mk = $"{typeStr}:{nameStr}:{paramStr}:{valStr}:{counterStr}";
                                         }
                                         else {
+#if LILYCAL_INVENTORY
                                             var lilyComp = go.GetComponent<MenuBaseComponent>();
                                             if (lilyComp != null){
                                                 var lilyso = new SerializedObject(lilyComp);
@@ -232,6 +235,7 @@ public class MenuManagerPlugin : Plugin<MenuManagerPlugin>{
                                                 proxyName = lilyName;
                                                 mk = $"{typeStr}:{nameStr}:{paramStr}:{valStr}:{counterStr}";
                                             }
+#endif
                                         }
                                     }
                                 }

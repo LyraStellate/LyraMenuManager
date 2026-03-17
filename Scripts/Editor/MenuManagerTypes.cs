@@ -4,8 +4,6 @@ using UnityEngine;
 using VRC.SDK3.Avatars.Components;
 using VRC.SDK3.Avatars.ScriptableObjects;
 using nadena.dev.modular_avatar.core;
-using jp.lilxyzw.lilycalinventory.runtime;
-
 namespace Lyra.Editor{
     [Serializable]
     public class MenuNode{
@@ -36,7 +34,7 @@ namespace Lyra.Editor{
         public bool IsNewEntry;
         public MenuManagerItemProxy SourceProxy;
         public bool IsProxyPathSegment;
-        public MenuBaseComponent SourceLilyCalItem;
+        public UnityEngine.Object SourceLilyCalItem;
     }
 
     [Serializable]

@@ -8,7 +8,6 @@ using UnityEditor;
 using UnityEngine;
 using VRC.SDK3.Avatars.Components;
 using VRC.SDK3.Avatars.ScriptableObjects;
-using jp.lilxyzw.lilycalinventory.runtime;
 using Lyra;
 
 namespace Lyra.Editor{
@@ -977,10 +976,10 @@ namespace Lyra.Editor{
                 EditorGUILayout.BeginHorizontal();
                 EditorGUILayout.LabelField("LCI ソース:", GUILayout.Width(70));
                 EditorGUI.BeginDisabledGroup(true);
-                EditorGUILayout.ObjectField(e.SourceLilyCalItem, typeof(MenuBaseComponent), true);
+                EditorGUILayout.ObjectField(e.SourceLilyCalItem, typeof(UnityEngine.Component), true);
                 EditorGUI.EndDisabledGroup();
                 if (GUILayout.Button("選択", GUILayout.Width(40))){
-                    Selection.activeObject = e.SourceLilyCalItem.gameObject;
+                    Selection.activeObject = (e.SourceLilyCalItem as Component)?.gameObject;
                     EditorGUIUtility.PingObject(e.SourceLilyCalItem);
                 }
                 EditorGUILayout.EndHorizontal();

@@ -10,7 +10,9 @@ using UnityEngine;
 using VRC.SDK3.Avatars.Components;
 using VRC.SDK3.Avatars.ScriptableObjects;
 using Lyra;
+#if LILYCAL_INVENTORY
 using jp.lilxyzw.lilycalinventory.runtime;
+#endif
 
 namespace Lyra.Editor{
     public partial class MenuManager{
@@ -35,7 +37,9 @@ namespace Lyra.Editor{
 
                 AddProxyEntries(_rootNode);
 
+#if LILYCAL_INVENTORY
                 AddLilyCalEntries(_rootNode);
+#endif
 
                 AssignUniqueIds(_rootNode, new Dictionary<string, int>());
 
@@ -174,6 +178,7 @@ namespace Lyra.Editor{
             }
         }
 
+#if LILYCAL_INVENTORY
         private void AddLilyCalEntries(MenuNode rootNode){
             if (_avatar == null) return;
             var all = _avatar.GetComponentsInChildren<MenuBaseComponent>(true);
@@ -230,6 +235,7 @@ namespace Lyra.Editor{
                 default: return VRCExpressionsMenu.Control.ControlType.Toggle;
             }
         }
+#endif
 
         private void MarkEditorOnly(MenuNode node, bool isParentEditorOnly){
             if (node == null || node.Entries == null) return;
@@ -241,7 +247,7 @@ namespace Lyra.Editor{
                     isLocalEditorOnly = true;
                 if (e.SourceProxy != null && IsEditorOnly(e.SourceProxy.gameObject))
                     isLocalEditorOnly = true;
-                if (e.SourceLilyCalItem != null && IsEditorOnly(e.SourceLilyCalItem.gameObject))
+                if (e.SourceLilyCalItem != null && IsEditorOnly((e.SourceLilyCalItem as Component)?.gameObject))
                     isLocalEditorOnly = true;
 
                 e.IsEditorOnly = isParentEditorOnly || isLocalEditorOnly;

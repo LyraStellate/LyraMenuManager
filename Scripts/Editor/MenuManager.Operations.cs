@@ -8,7 +8,9 @@ using UnityEditor;
 using UnityEngine;
 using VRC.SDK3.Avatars.ScriptableObjects;
 using Lyra;
+#if LILYCAL_INVENTORY
 using jp.lilxyzw.lilycalinventory.runtime;
+#endif
 
 namespace Lyra.Editor{
     public partial class MenuManager{
@@ -274,10 +276,12 @@ namespace Lyra.Editor{
             else if (target.SourceMenuItem != null){
                 freshNode.Entries.Add(ConvertMAMenuItem(target.SourceMenuItem, visited, m2i, ri));
             }
+#if LILYCAL_INVENTORY
             else if (target.SourceLilyCalItem != null){
                 var all = _avatar.GetComponentsInChildren<MenuBaseComponent>(true);
-                freshNode.Entries.Add(CreateLilyCalEntry(target.SourceLilyCalItem, all));
+                freshNode.Entries.Add(CreateLilyCalEntry((MenuBaseComponent)target.SourceLilyCalItem, all));
             }
+#endif
 
             var si = new HashSet<ModularAvatarMenuInstaller>();
             var smi = new HashSet<ModularAvatarMenuItem>();

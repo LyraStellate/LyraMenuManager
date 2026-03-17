@@ -23,6 +23,12 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "jp.lilxyzw.lilycalinventory",
+            "expression": "",
+            "define": "LILYCAL_INVENTORY"
+        }
+    ],
     "noEngineReferences": false
 }

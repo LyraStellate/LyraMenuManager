@@ -6,8 +6,6 @@ using UnityEditor;
 using UnityEngine;
 using VRC.SDK3.Avatars.Components;
 using VRC.SDK3.Avatars.ScriptableObjects;
-using jp.lilxyzw.lilycalinventory.runtime;
-
 namespace Lyra.Editor{
     public partial class MenuManager{
         private string GetOriginalName(MenuEntry e){
@@ -17,7 +15,7 @@ namespace Lyra.Editor{
             if (e.SourceLilyCalItem != null){
                 var so = new SerializedObject(e.SourceLilyCalItem);
                 var name = so.FindProperty("menuName").stringValue;
-                return string.IsNullOrEmpty(name) ? e.SourceLilyCalItem.gameObject.name : name;
+                return string.IsNullOrEmpty(name) ? ((e.SourceLilyCalItem as Component)?.gameObject.name ?? e.Name) : name;
             }
             if (e.SourceAsset != null && e.SourceIndex >= 0 && e.SourceIndex < e.SourceAsset.controls.Count){
                 return e.SourceAsset.controls[e.SourceIndex].name;
